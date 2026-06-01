@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#17130f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- PEÇA 1 do PWA: aponta para o manifesto (identidade do app) -->
+<link rel="manifest" href="./manifest.webmanifest">
+<!-- ícone para iPhone (iOS ignora o manifesto para isso) -->
+<link rel="apple-touch-icon" href="./icon-192.png">
+<title>Gastos por Voz</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Hanken+Grotesk:wght@400;500;600;700&display=swap');
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0;}
+:root{
+  --bg:#17130f;--bg2:#1f1a15;--card:#241e18;--card2:#2c2620;
+  --line:#3a322a;--ink:#f3ece0;--mut:#a99c89;--mut2:#7d7363;
+  --gold:#e0a85e;--gold-d:#caa25a;--red:#C2553B;--green:#5C8A4C;
+}
+html,body{background:var(--bg);}
+body{font-family:'Hanken Grotesk',-apple-system,sans-serif;color:var(--ink);
+  max-width:480px;margin:0 auto;min-height:100vh;position:relative;overflow-x:hidden;}
+body::before{content:"";position:fixed;inset:0;max-width:480px;margin:0 auto;pointer-events:none;z-index:0;
+  background:radial-gradient(120% 60% at 50% -10%,rgba(224,168,94,.10),transparent 60%);}
+.serif{font-family:'Fraunces',serif;}
+.scroll{padding:20px 18px 110px;position:relative;z-index:1;}
+.kick{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--mut2);font-weight:600;}
+.h1{font-family:'Fraunces',serif;font-weight:500;font-size:26px;line-height:1.1;margin-top:2px;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;}
+.muted{color:var(--mut);}
+button{font-family:inherit;border:none;cursor:pointer;}
+.btn{border-radius:14px;font-weight:600;}
+input,select{font-family:inherit;}
+input:focus,select:focus{outline:2px solid var(--gold);outline-offset:1px;}
+select{appearance:none;-webkit-appearance:none;}
+.hide{display:none!important;}
+.fade{animation:fade .35s ease both;}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.pop{animation:pop .3s cubic-bezier(.2,.9,.3,1.3) both;}
+@keyframes pop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
+.pulse{animation:pulse 1.4s ease-in-out infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(224,168,94,.45)}50%{box-shadow:0 0 0 22px rgba(224,168,94,0)}}
+.spin{animation:spin 1s linear infinite;}@keyframes spin{to{transform:rotate(360deg)}}
+.tabbar{position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;
+  background:rgba(23,19,15,.92);backdrop-filter:blur(12px);border-top:1px solid var(--line);
+  display:flex;z-index:20;}
+.tabbtn{flex:1;background:none;color:var(--mut2);font-weight:600;font-size:11px;
+  padding:11px 0 16px;display:flex;flex-direction:column;align-items:center;gap:4px;}
+.tabbtn.on{color:var(--gold);}
+.row{display:flex;align-items:center;gap:12px;padding:11px 2px;border-bottom:1px solid var(--line);}
+.dot{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
+.field{width:100%;background:var(--bg2);border:1px solid var(--line);color:var(--ink);
+  border-radius:12px;padding:12px 14px;font-size:15px;}
+.toast{position:fixed;bottom:86px;left:0;right:0;max-width:480px;margin:0 auto;text-align:center;
+  z-index:30;pointer-events:none;}
+.toast span{background:#2c2620;border:1px solid var(--line);padding:9px 16px;border-radius:999px;
+  font-size:13px;font-weight:600;}
+.seg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px;}
+.seg button{flex:1;padding:9px;border-radius:9px;background:transparent;color:var(--mut);font-weight:600;}
+.seg button.on{background:var(--gold);color:#2a1d0c;}
+svg text{font-family:'Hanken Grotesk',sans-serif;}
+</style>
+</head>
+<body>
+
+<!-- ===================== TELA REGISTRAR ===================== -->
+<div id="screen-reg" class="scroll">
+  <div class="kick" id="today"></div>
+  <h1 class="h1">No que você gastou?</h1>
+
+  <div style="text-align:center;margin:30px 0 14px;">
+    <button id="micBtn" class="btn" style="width:116px;height:116px;border-radius:50%;
+      background:linear-gradient(160deg,#e8b76e,#caa25a);color:#2a1d0c;
+      display:inline-flex;align-items:center;justify-content:center;
+      box-shadow:0 10px 30px rgba(0,0,0,.4);">
+      <svg id="micIcon" width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+    </button>
+    <div id="micHint" class="muted" style="margin-top:14px;font-size:14px;min-height:20px;"></div>
+    <div id="transcript" class="fade" style="margin-top:10px;font-style:italic;color:var(--gold);font-size:15px;"></div>
+  </div>
+
+  <div id="typeToggleWrap" style="text-align:center;margin-bottom:18px;">
+    <button id="typeToggle" class="btn" style="background:transparent;color:var(--mut);font-size:13px;
+      display:inline-flex;align-items:center;gap:6px;padding:6px 10px;">⌨️ ou digitar manualmente</button>
+  </div>
+
+  <div id="typeBox" class="card pop hide" style="margin-bottom:18px;">
+    <input id="typeInput" class="field" placeholder="ex: 35 no posto de gasolina">
+    <div style="display:flex;gap:10px;margin-top:12px;">
+      <button id="typeCancel" class="btn" style="flex:1;background:var(--card2);color:var(--mut);padding:11px;">Cancelar</button>
+      <button id="typeOk" class="btn" style="flex:2;background:var(--gold);color:#2a1d0c;padding:11px;">Analisar</button>
+    </div>
+  </div>
+
+  <!-- cartão de confirmação -->
+  <div id="confirm" class="card pop hide" style="border-color:var(--gold-d);background:var(--card2);margin-bottom:18px;">
+    <div class="kick" style="color:var(--gold);">Confirme o lançamento</div>
+    <div style="display:flex;align-items:baseline;gap:8px;margin:12px 0 4px;">
+      <span class="serif muted" style="font-size:20px;">R$</span>
+      <input id="cAmount" class="serif" inputmode="decimal" placeholder="0,00"
+        style="background:transparent;border:none;border-bottom:2px solid var(--line);color:var(--ink);
+        font-size:34px;width:160px;font-weight:500;">
+    </div>
+    <input id="cDesc" class="field" placeholder="descrição" style="margin:8px 0 12px;">
+    <div style="position:relative;">
+      <select id="cCat" class="field" style="font-weight:600;padding-right:36px;"></select>
+      <span style="position:absolute;right:14px;top:13px;color:var(--mut);pointer-events:none;">▾</span>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px;">
+      <button id="cDiscard" class="btn" style="flex:1;background:var(--card);color:var(--mut);padding:13px;">✕ Descartar</button>
+      <button id="cSave" class="btn" style="flex:2;background:var(--gold);color:#2a1d0c;padding:13px;">✓ Registrar</button>
+    </div>
+  </div>
+
+  <div class="kick" style="margin-top:26px;margin-bottom:10px;">Lançamentos recentes</div>
+  <div id="recentList"></div>
+</div>
+
+<!-- ===================== TELA ANÁLISE ===================== -->
+<div id="screen-viz" class="scroll hide">
+  <div class="kick">Para onde vai o dinheiro</div>
+  <h1 class="h1">Análise</h1>
+  <div class="seg" style="margin:16px 0;">
+    <button id="pWeek" class="on">Semana</button>
+    <button id="pMonth">Mês</button>
+  </div>
+  <div id="rangeLabel" class="muted" style="font-size:13px;margin-bottom:4px;"></div>
+  <div id="totalLabel" class="serif" style="font-size:40px;font-weight:500;margin-bottom:18px;"></div>
+  <div id="vizBody"></div>
+</div>
+
+<div id="toast" class="toast hide"><span></span></div>
+
+<!-- ===================== TABBAR ===================== -->
+<nav class="tabbar">
+  <button id="tabReg" class="tabbtn on">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+    Registrar
+  </button>
+  <button id="tabViz" class="tabbtn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12A9 9 0 1 1 12 3v9z"/><path d="M12 3a9 9 0 0 1 9 9h-9z" fill="currentColor" opacity=".25"/></svg>
+    Análise
+  </button>
+</nav>
+
+<script>
+/* =============================================================
+   TAXONOMIA — as 10 categorias do André
+============================================================= */
+const CATEGORIES = [
+  {id:1,name:"Moradia e Contas da Casa",short:"Moradia",group:"ess",color:"#C2553B",
+   kw:["luz","energia","água","agua","internet","gás","gas","condomínio","condominio","iptu","aluguel","reparo","conta de casa","celesc","rge","corsan"]},
+  {id:2,name:"Supermercado e Feira",short:"Mercado",group:"ess",color:"#D98A45",
+   kw:["mercado","supermercado","atacado","feira","mercearia","hortifruti","sacolão","sacolao","açougue","acougue"]},
+  {id:3,name:"Transporte e Veículos",short:"Transporte",group:"ess",color:"#C9A227",
+   kw:["gasolina","combustível","combustivel","posto","etanol","álcool","alcool","diesel","mecânic","mecanic","pedágio","pedagio","estacionamento","ipva","seguro do carro","uber","táxi","taxi","99","ônibus","onibus","metrô","metro","passagem de ônibus"]},
+  {id:4,name:"Saúde e Bem-estar",short:"Saúde",group:"ess",color:"#5C8A4C",
+   kw:["farmácia","farmacia","remédio","remedio","médic","medic","consulta","exame","dentista","plano de saúde","hospital","laboratório","laboratorio","drogaria","raia","panvel"]},
+  {id:5,name:"Impostos e Despesas Financeiras",short:"Financeiro",group:"ess",color:"#7A8B8E",
+   kw:["tarifa","anuidade","juros","banco","contabilidade","imposto de renda","fatura","empréstimo","emprestimo","financiamento","taxa"]},
+  {id:6,name:"Alimentação Fora e Lazer",short:"Comer fora",group:"sup",color:"#6FA8A0",
+   kw:["restaurante","bar","café","cafe","cafeteria","padaria","lanche","ifood","cinema","show","evento","balada","almoço","almoco","janta","cerveja","pizza","hambúrguer","hamburguer","sorvete","açaí","acai","mcdonald","burger"]},
+  {id:7,name:"Compras e Vestuário",short:"Compras",group:"sup",color:"#7E9BC4",
+   kw:["roupa","camisa","calça","calca","calçado","calcado","tênis","tenis","sapato","loja","shopping","amazon","mercado livre","shopee","aliexpress","gadget","eletrônico","eletronico","celular","computador","notebook","ferramenta","renner","riachuelo"]},
+  {id:8,name:"Serviços e Assinaturas",short:"Assinaturas",group:"sup",color:"#9B83C0",
+   kw:["netflix","spotify","streaming","assinatura","academia","gym","software","disney","hbo","max","prime","youtube","clube","apple"]},
+  {id:9,name:"Viagens e Expedições",short:"Viagens",group:"sup",color:"#C07BA8",
+   kw:["hotel","pousada","passagem aérea","passagem aerea","passagem de avião","viagem","temporada","airbnb","passeio","turismo","resort","decolar"]},
+  {id:10,name:"Cuidados Pessoais e Presentes",short:"Cuidados",group:"sup",color:"#C26B7E",
+   kw:["barbearia","barbeiro","salão","salao","cabelo","cosmético","cosmetico","maquiagem","presente","aniversário","aniversario","perfume","manicure","unha","estética","estetica"]},
+];
+const CAT_BY_ID = Object.fromEntries(CATEGORIES.map(c=>[c.id,c]));
+const GROUP = {ess:{label:"Essenciais",emoji:"🔴",color:"#C2553B"},sup:{label:"Supérfluos",emoji:"🟢",color:"#5C8A4C"}};
+
+/* =============================================================
+   Helpers de valor / data
+============================================================= */
+const brl = n => new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(n||0);
+
+const NUM = {zero:0,um:1,uma:1,dois:2,duas:2,tres:3,"três":3,quatro:4,cinco:5,seis:6,sete:7,oito:8,nove:9,
+  dez:10,onze:11,doze:12,treze:13,quatorze:14,catorze:14,quinze:15,dezesseis:16,dezessete:17,dezoito:18,dezenove:19,
+  vinte:20,trinta:30,quarenta:40,cinquenta:50,"cinqüenta":50,sessenta:60,setenta:70,oitenta:80,noventa:90,
+  cem:100,cento:100,duzentos:200,trezentos:300,quatrocentos:400,quinhentos:500,seiscentos:600,setecentos:700,oitocentos:800,novecentos:900,mil:1000};
+
+function parseWordNumber(text){
+  const toks = text.toLowerCase().replace(/[.,]/g," ").split(/\s+/).filter(Boolean);
+  let total=0,cur=0,found=false;
+  for(const t of toks){
+    if(t==="e") continue;
+    if(t==="mil"){ total += (cur||1)*1000; cur=0; found=true; continue; }
+    if(NUM[t]!==undefined){ cur += NUM[t]; found=true; }
+  }
+  total += cur;
+  return found && total>0 ? total : null;
+}
+
+function extractAmount(text){
+  const lower = text.toLowerCase();
+  // 1) dígitos: "35", "12,90", "1.250,00", "12.90"
+  const m = lower.match(/\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?|\d+(?:\.\d{1,2})?/);
+  if(m){
+    let s = m[0];
+    if(s.includes(",")) s = s.replace(/\./g,"").replace(",",".");   // formato BR
+    const v = parseFloat(s);
+    if(!isNaN(v)) return v;
+  }
+  // 2) por extenso
+  return parseWordNumber(text);
+}
+
+function categorize(text){
+  const lower = " "+text.toLowerCase()+" ";
+  for(const c of CATEGORIES){
+    if(c.kw.some(k=>lower.includes(k))) return c.id;
+  }
+  return null;
+}
+
+function cleanDesc(text){
+  // remove valores explícitos pra descrição ficar enxuta
+  return text.replace(/r\$\s*/gi,"").replace(/\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?|\d+(?:\.\d{1,2})?/g,"")
+    .replace(/\b(reais|real|conto|pila|paguei|gastei|de)\b/gi,"").replace(/\s+/g," ").trim() || text.trim();
+}
+
+function startOfWeek(d){const x=new Date(d);const day=(x.getDay()+6)%7;x.setHours(0,0,0,0);x.setDate(x.getDate()-day);return x;}
+function startOfMonth(d){const x=new Date(d);x.setHours(0,0,0,0);x.setDate(1);return x;}
+
+/* =============================================================
+   Estado + persistência (localStorage)
+============================================================= */
+const KEY = "gastos_voz_v1";
+let expenses = [];
+try{ expenses = JSON.parse(localStorage.getItem(KEY)||"[]"); }catch(e){ expenses=[]; }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(expenses)); }catch(e){} }
+
+let pending = null;
+let period = "week";
+
+/* =============================================================
+   Atalhos DOM
+============================================================= */
+const $ = id => document.getElementById(id);
+function showToast(msg){ const t=$("toast"); t.querySelector("span").textContent=msg; t.classList.remove("hide");
+  clearTimeout(showToast._t); showToast._t=setTimeout(()=>t.classList.add("hide"),1700); }
+
+/* preencher data e select de categorias */
+$("today").textContent = new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"});
+$("cCat").innerHTML = CATEGORIES.map(c=>`<option value="${c.id}">${GROUP[c.group].emoji} ${c.name}</option>`).join("");
+
+/* =============================================================
+   Reconhecimento de voz
+============================================================= */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec=null, recording=false, finalText="";
+const micHint=$("micHint"), micBtn=$("micBtn"), micIcon=$("micIcon"), transcriptEl=$("transcript");
+
+function setMicState(on){
+  recording=on;
+  micBtn.classList.toggle("pulse",on);
+  micBtn.style.background = on ? "var(--red)" : "linear-gradient(160deg,#e8b76e,#caa25a)";
+  micBtn.style.color = on ? "#fff" : "#2a1d0c";
+  micIcon.innerHTML = on
+    ? '<rect x="6" y="6" width="12" height="12" rx="2" fill="#fff" stroke="none"/>'
+    : '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/>';
+  micHint.textContent = on ? "Ouvindo… toque para parar"
+    : SR ? "Toque e diga, ex: “cinquenta reais no mercado”"
+    : "Voz indisponível aqui — use “digitar manualmente”";
+}
+
+if(SR){
+  rec = new SR(); rec.lang="pt-BR"; rec.continuous=false; rec.interimResults=true;
+  rec.onresult = e=>{ let t=""; for(let i=0;i<e.results.length;i++) t+=e.results[i][0].transcript;
+    finalText=t; transcriptEl.textContent = t?`“${t}”`:""; };
+  rec.onerror = ()=> setMicState(false);
+  rec.onend = ()=>{ setMicState(false); const t=finalText.trim(); if(t) analyze(t); };
+}
+setMicState(false);
+
+micBtn.onclick = ()=>{
+  if(!SR){ openType(); return; }
+  if(recording){ try{rec.stop();}catch(e){} return; }
+  finalText=""; transcriptEl.textContent=""; hide("confirm");
+  try{ rec.start(); setMicState(true); }catch(e){}
+};
+
+/* =============================================================
+   Entrada por texto
+============================================================= */
+function openType(){ $("typeBox").classList.remove("hide"); $("typeToggleWrap").classList.add("hide"); $("typeInput").focus(); }
+function closeType(){ $("typeBox").classList.add("hide"); $("typeToggleWrap").classList.remove("hide"); $("typeInput").value=""; }
+$("typeToggle").onclick = openType;
+$("typeCancel").onclick = closeType;
+$("typeOk").onclick = ()=>{ const v=$("typeInput").value.trim(); if(v){ analyze(v); closeType(); } };
+$("typeInput").addEventListener("keydown",e=>{ if(e.key==="Enter"){ const v=$("typeInput").value.trim(); if(v){analyze(v);closeType();} }});
+
+/* =============================================================
+   Análise (parse local) -> cartão de confirmação
+============================================================= */
+function hide(id){ $(id).classList.add("hide"); }
+function analyze(text){
+  const amount = extractAmount(text);
+  const catId = categorize(text) || CATEGORIES[0].id;
+  pending = { amount: amount!=null?amount:"", categoryId:catId, description:cleanDesc(text) };
+  $("cAmount").value = pending.amount;
+  $("cDesc").value = pending.description;
+  $("cCat").value = pending.categoryId;
+  $("cCat").style.borderColor = CAT_BY_ID[pending.categoryId].color;
+  $("confirm").classList.remove("hide");
+  transcriptEl.textContent = text?`“${text}”`:"";
+}
+$("cCat").addEventListener("change",()=>{ $("cCat").style.borderColor = CAT_BY_ID[+$("cCat").value].color; });
+$("cDiscard").onclick = ()=>{ pending=null; hide("confirm"); transcriptEl.textContent=""; };
+$("cSave").onclick = ()=>{
+  const amt = parseFloat(String($("cAmount").value).replace(/\./g,"").replace(",","."));
+  const amt2 = parseFloat(String($("cAmount").value).replace(",","."));
+  const val = !isNaN(amt)&&$("cAmount").value.includes(",")?amt:amt2;
+  if(!val||val<=0){ showToast("Informe um valor válido"); return; }
+  expenses.unshift({id:Date.now(),amount:val,categoryId:+$("cCat").value,
+    description:$("cDesc").value.trim(),ts:Date.now()});
+  save(); pending=null; hide("confirm"); transcriptEl.textContent="";
+  renderRecent(); showToast("Gasto registrado ✓");
+};
+
+/* =============================================================
+   Lista de recentes
+============================================================= */
+function renderRecent(){
+  const el=$("recentList");
+  if(!expenses.length){
+    el.innerHTML = `<div class="card muted" style="text-align:center;padding:26px 16px;font-size:14px;">
+      Nenhum gasto ainda.<br>Toque no microfone e comece o hábito hoje.</div>`;
+    return;
+  }
+  el.innerHTML = expenses.slice(0,15).map(e=>{
+    const c=CAT_BY_ID[e.categoryId];
+    const d=new Date(e.ts);
+    return `<div class="row">
+      <span class="dot" style="background:${c.color}"></span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${e.description||c.name}</div>
+        <div class="muted" style="font-size:12px;">${c.short} · ${d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})} ${d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</div>
+      </div>
+      <div class="serif" style="font-size:15px;font-weight:500;">${brl(e.amount)}</div>
+      <button class="btn" data-del="${e.id}" style="background:transparent;color:var(--mut2);padding:6px;">🗑</button>
+    </div>`;
+  }).join("");
+  el.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
+    expenses=expenses.filter(x=>x.id!=b.dataset.del); save(); renderRecent(); if(!$("screen-viz").classList.contains("hide")) renderViz();
+  });
+}
+
+/* =============================================================
+   Gráficos SVG (sem dependências)
+============================================================= */
+function pieSVG(data,total){
+  const cx=90,cy=90,r=78,ri=46; let a=-Math.PI/2; let paths="";
+  data.forEach(d=>{
+    const frac=d.value/total, a2=a+frac*2*Math.PI;
+    const large=frac>0.5?1:0;
+    const x1=cx+r*Math.cos(a),y1=cy+r*Math.sin(a),x2=cx+r*Math.cos(a2),y2=cy+r*Math.sin(a2);
+    const xi1=cx+ri*Math.cos(a2),yi1=cy+ri*Math.sin(a2),xi2=cx+ri*Math.cos(a),yi2=cy+ri*Math.sin(a);
+    paths+=`<path d="M${x1} ${y1} A${r} ${r} 0 ${large} 1 ${x2} ${y2} L${xi1} ${yi1} A${ri} ${ri} 0 ${large} 0 ${xi2} ${yi2} Z" fill="${d.color}"/>`;
+    a=a2;
+  });
+  return `<svg viewBox="0 0 180 180" width="180" height="180" style="display:block;margin:0 auto;">${paths}
+    <text x="90" y="86" text-anchor="middle" fill="#a99c89" font-size="10">total</text>
+    <text x="90" y="103" text-anchor="middle" fill="#f3ece0" font-size="15" font-weight="600">${brl(total).replace("R$","R$ ")}</text></svg>`;
+}
+
+function barsSVG(series){
+  const W=300,H=150,pad=24,max=Math.max(1,...series.map(s=>s.value));
+  const bw=(W-pad*2)/series.length*0.6, gap=(W-pad*2)/series.length;
+  let bars="";
+  series.forEach((s,i)=>{
+    const h=s.value/max*(H-50);
+    const x=pad+i*gap+(gap-bw)/2, y=H-30-h;
+    bars+=`<rect x="${x}" y="${y}" width="${bw}" height="${Math.max(h,0)}" rx="5" fill="#e0a85e"/>
+      <text x="${x+bw/2}" y="${H-12}" text-anchor="middle" fill="#a99c89" font-size="11">${s.label}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}">${bars}</svg>`;
+}
+
+/* =============================================================
+   Tela de análise
+============================================================= */
+function renderViz(){
+  const start = (period==="week"?startOfWeek(new Date()):startOfMonth(new Date())).getTime();
+  const inP = expenses.filter(e=>e.ts>=start);
+  const total = inP.reduce((s,e)=>s+e.amount,0);
+
+  $("rangeLabel").textContent = period==="week"
+    ? "Semana de "+new Date(start).toLocaleDateString("pt-BR",{day:"2-digit",month:"short"})
+    : new Date().toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+  $("totalLabel").textContent = brl(total);
+
+  if(!inP.length){ $("vizBody").innerHTML =
+    `<div class="card muted" style="text-align:center;padding:30px 16px;font-size:14px;">Sem gastos neste período ainda.</div>`; return; }
+
+  const map={}; inP.forEach(e=>map[e.categoryId]=(map[e.categoryId]||0)+e.amount);
+  const byCat=CATEGORIES.map(c=>({...c,value:map[c.id]||0})).filter(c=>c.value>0).sort((a,b)=>b.value-a.value);
+  const ess=inP.filter(e=>CAT_BY_ID[e.categoryId].group==="ess").reduce((s,e)=>s+e.amount,0);
+  const sup=total-ess;
+
+  let series;
+  if(period==="week"){
+    const days=["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"];
+    series=days.map(d=>({label:d,value:0}));
+    inP.forEach(e=>{ series[(new Date(e.ts).getDay()+6)%7].value+=e.amount; });
+  }else{
+    series=[1,2,3,4,5].map(w=>({label:"S"+w,value:0}));
+    inP.forEach(e=>{ const w=Math.min(4,Math.floor((new Date(e.ts).getDate()-1)/7)); series[w].value+=e.amount; });
+  }
+
+  const legend = byCat.map(c=>`<div style="display:flex;align-items:center;gap:9px;padding:6px 0;">
+    <span class="dot" style="background:${c.color}"></span>
+    <span style="flex:1;font-size:14px;">${c.name}</span>
+    <span class="serif" style="font-size:14px;">${brl(c.value)}</span>
+    <span class="muted" style="font-size:12px;width:40px;text-align:right;">${Math.round(c.value/total*100)}%</span>
+  </div>`).join("");
+
+  $("vizBody").innerHTML = `
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex;height:14px;border-radius:7px;overflow:hidden;margin-bottom:12px;">
+        <div style="width:${total?ess/total*100:0}%;background:${GROUP.ess.color}"></div>
+        <div style="width:${total?sup/total*100:0}%;background:${GROUP.sup.color}"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <div><div class="muted" style="font-size:12px;">🔴 Essenciais</div>
+          <div class="serif" style="font-size:18px;">${brl(ess)}</div>
+          <div class="muted" style="font-size:11px;">${total?Math.round(ess/total*100):0}%</div></div>
+        <div style="text-align:right;"><div class="muted" style="font-size:12px;">🟢 Supérfluos</div>
+          <div class="serif" style="font-size:18px;">${brl(sup)}</div>
+          <div class="muted" style="font-size:11px;">${total?Math.round(sup/total*100):0}%</div></div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:16px;">
+      <div class="kick" style="margin-bottom:6px;">Por categoria</div>
+      ${pieSVG(byCat,total)}
+      <div style="margin-top:8px;">${legend}</div>
+    </div>
+    <div class="card">
+      <div class="kick" style="margin-bottom:10px;">${period==="week"?"Por dia da semana":"Por semana do mês"}</div>
+      ${barsSVG(series)}
+    </div>`;
+}
+
+/* =============================================================
+   Navegação de abas + período
+============================================================= */
+function goto(tab){
+  const reg=tab==="reg";
+  $("screen-reg").classList.toggle("hide",!reg);
+  $("screen-viz").classList.toggle("hide",reg);
+  $("tabReg").classList.toggle("on",reg);
+  $("tabViz").classList.toggle("on",!reg);
+  if(!reg) renderViz();
+}
+$("tabReg").onclick=()=>goto("reg");
+$("tabViz").onclick=()=>goto("viz");
+$("pWeek").onclick=()=>{ period="week"; $("pWeek").classList.add("on"); $("pMonth").classList.remove("on"); renderViz(); };
+$("pMonth").onclick=()=>{ period="month"; $("pMonth").classList.add("on"); $("pWeek").classList.remove("on"); renderViz(); };
+
+/* init */
+renderRecent();
+
+/* =============================================================
+   PEÇA 2 do PWA: registra o Service Worker.
+   É ele que guarda o app no aparelho e faz funcionar offline.
+============================================================= */
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>{
+    navigator.serviceWorker.register("./sw.js")
+      .then(()=>console.log("Service Worker registrado — app pronto para offline"))
+      .catch(err=>console.log("Falha ao registrar SW:",err));
+  });
+}
+</script>
+</body>
+</html>
