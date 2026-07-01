@@ -10,7 +10,7 @@
    Isso força o navegador a baixar tudo de novo na próxima visita.
 ===================================================================== */
 
-const VERSAO = "gastos-v1";
+const VERSAO = "gastos-v2";
 
 // Arquivos essenciais do app (o "esqueleto" que precisa estar offline)
 const ARQUIVOS = [

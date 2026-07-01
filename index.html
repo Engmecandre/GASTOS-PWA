@@ -123,12 +123,40 @@ svg text{font-family:'Hanken Grotesk',sans-serif;}
   <div class="kick">Para onde vai o dinheiro</div>
   <h1 class="h1">Análise</h1>
   <div class="seg" style="margin:16px 0;">
-    <button id="pWeek" class="on">Semana</button>
-    <button id="pMonth">Mês</button>
+    <button id="pWeek">Semana</button>
+    <button id="pMonth" class="on">Mês</button>
   </div>
-  <div id="rangeLabel" class="muted" style="font-size:13px;margin-bottom:4px;"></div>
-  <div id="totalLabel" class="serif" style="font-size:40px;font-weight:500;margin-bottom:18px;"></div>
+
+  <!-- navegação entre períodos (‹ mês anterior | mês seguinte ›) -->
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;">
+    <button id="navPrev" class="btn" style="background:var(--card);border:1px solid var(--line);color:var(--ink);width:44px;height:44px;font-size:20px;">‹</button>
+    <div style="flex:1;text-align:center;">
+      <div id="rangeLabel" class="serif" style="font-size:17px;font-weight:500;text-transform:capitalize;"></div>
+    </div>
+    <button id="navNext" class="btn" style="background:var(--card);border:1px solid var(--line);color:var(--ink);width:44px;height:44px;font-size:20px;">›</button>
+  </div>
+
+  <div class="muted" style="font-size:12px;">Total do período</div>
+  <div id="totalLabel" class="serif" style="font-size:38px;font-weight:500;margin-bottom:18px;"></div>
   <div id="vizBody"></div>
+
+  <!-- lista completa de todos os lançamentos do período -->
+  <div id="fullListWrap" class="hide" style="margin-top:22px;">
+    <div class="kick" style="margin-bottom:10px;">Todos os lançamentos <span id="fullCount" class="muted"></span></div>
+    <div id="fullList"></div>
+  </div>
+
+  <!-- relatório e backup -->
+  <div class="card" style="margin-top:22px;">
+    <div class="kick" style="margin-bottom:12px;">Relatório e backup</div>
+    <button id="btnCSV" class="btn" style="width:100%;background:var(--gold);color:#2a1d0c;padding:13px;margin-bottom:10px;">⬇ Exportar este período (Excel/CSV)</button>
+    <button id="btnBackup" class="btn" style="width:100%;background:var(--card2);color:var(--ink);border:1px solid var(--line);padding:13px;margin-bottom:10px;">🛟 Baixar backup completo (todos os dados)</button>
+    <button id="btnRestore" class="btn" style="width:100%;background:var(--card2);color:var(--ink);border:1px solid var(--line);padding:13px;">↩ Restaurar backup</button>
+    <input id="fileRestore" type="file" accept=".json,application/json" style="display:none;">
+    <div class="muted" style="font-size:12px;margin-top:12px;line-height:1.5;">
+      Seus dados ficam salvos só neste navegador. Baixe um backup de vez em quando — assim você nunca perde o histórico, mesmo se trocar de celular.
+    </div>
+  </div>
 </div>
 
 <div id="toast" class="toast hide"><span></span></div>
@@ -236,7 +264,21 @@ try{ expenses = JSON.parse(localStorage.getItem(KEY)||"[]"); }catch(e){ expenses
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(expenses)); }catch(e){} }
 
 let pending = null;
-let period = "week";
+let period = "month";
+let offset = 0;   // 0 = período atual, -1 = anterior, -2 = dois atrás...
+
+/* devolve o intervalo [start, end) do período selecionado, aplicando o offset */
+function periodRange(){
+  const now = new Date();
+  if(period==="week"){
+    const s = startOfWeek(now); s.setDate(s.getDate()+offset*7);
+    const e = new Date(s); e.setDate(e.getDate()+7);
+    return { start:s.getTime(), end:e.getTime() };
+  }
+  const s = new Date(now.getFullYear(), now.getMonth()+offset, 1);
+  const e = new Date(now.getFullYear(), now.getMonth()+offset+1, 1);
+  return { start:s.getTime(), end:e.getTime() };
+}
 
 /* =============================================================
    Atalhos DOM
@@ -333,7 +375,7 @@ function renderRecent(){
       Nenhum gasto ainda.<br>Toque no microfone e comece o hábito hoje.</div>`;
     return;
   }
-  el.innerHTML = expenses.slice(0,15).map(e=>{
+  el.innerHTML = expenses.slice(0,30).map(e=>{
     const c=CAT_BY_ID[e.categoryId];
     const d=new Date(e.ts);
     return `<div class="row">
@@ -385,18 +427,29 @@ function barsSVG(series){
 /* =============================================================
    Tela de análise
 ============================================================= */
+let currentInP = [];   // guarda os lançamentos do período exibido (usado no CSV)
+
 function renderViz(){
-  const start = (period==="week"?startOfWeek(new Date()):startOfMonth(new Date())).getTime();
-  const inP = expenses.filter(e=>e.ts>=start);
+  const {start,end} = periodRange();
+  const inP = expenses.filter(e=>e.ts>=start && e.ts<end).sort((a,b)=>b.ts-a.ts);
+  currentInP = inP;
   const total = inP.reduce((s,e)=>s+e.amount,0);
 
+  // rótulo do período
   $("rangeLabel").textContent = period==="week"
-    ? "Semana de "+new Date(start).toLocaleDateString("pt-BR",{day:"2-digit",month:"short"})
-    : new Date().toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+    ? new Date(start).toLocaleDateString("pt-BR",{day:"2-digit",month:"short"})+" – "+
+      new Date(end-1).toLocaleDateString("pt-BR",{day:"2-digit",month:"short"})
+    : new Date(start).toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+  // desativa "próximo" quando já estamos no período atual
+  $("navNext").style.opacity = offset>=0 ? .35 : 1;
+  $("navNext").disabled = offset>=0;
   $("totalLabel").textContent = brl(total);
 
+  // lista completa do período
+  renderFullList(inP);
+
   if(!inP.length){ $("vizBody").innerHTML =
-    `<div class="card muted" style="text-align:center;padding:30px 16px;font-size:14px;">Sem gastos neste período ainda.</div>`; return; }
+    `<div class="card muted" style="text-align:center;padding:30px 16px;font-size:14px;">Sem gastos neste período.</div>`; return; }
 
   const map={}; inP.forEach(e=>map[e.categoryId]=(map[e.categoryId]||0)+e.amount);
   const byCat=CATEGORIES.map(c=>({...c,value:map[c.id]||0})).filter(c=>c.value>0).sort((a,b)=>b.value-a.value);
@@ -446,6 +499,92 @@ function renderViz(){
     </div>`;
 }
 
+/* lista completa e rolável de todos os lançamentos do período */
+function renderFullList(inP){
+  const wrap=$("fullListWrap"), list=$("fullList");
+  if(!inP.length){ wrap.classList.add("hide"); return; }
+  wrap.classList.remove("hide");
+  $("fullCount").textContent = `(${inP.length})`;
+  list.innerHTML = inP.map(e=>{
+    const c=CAT_BY_ID[e.categoryId], d=new Date(e.ts);
+    return `<div class="row">
+      <span class="dot" style="background:${c.color}"></span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${e.description||c.name}</div>
+        <div class="muted" style="font-size:12px;">${c.short} · ${d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})} ${d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</div>
+      </div>
+      <div class="serif" style="font-size:15px;font-weight:500;">${brl(e.amount)}</div>
+      <button class="btn" data-del="${e.id}" style="background:transparent;color:var(--mut2);padding:6px;">🗑</button>
+    </div>`;
+  }).join("");
+  list.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
+    expenses=expenses.filter(x=>x.id!=b.dataset.del); save(); renderViz(); renderRecent();
+  });
+}
+
+/* =============================================================
+   Exportação (CSV para Excel) e backup / restauração (JSON)
+============================================================= */
+function baixarArquivo(nome, conteudo, tipo){
+  const blob=new Blob([conteudo],{type:tipo});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url; a.download=nome; document.body.appendChild(a); a.click();
+  document.body.removeChild(a); setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+function gerarCSV(lista){
+  const linhas=[["Data","Hora","Categoria","Grupo","Descrição","Valor (R$)"]];
+  lista.slice().sort((a,b)=>a.ts-b.ts).forEach(e=>{
+    const c=CAT_BY_ID[e.categoryId], d=new Date(e.ts);
+    linhas.push([
+      d.toLocaleDateString("pt-BR"),
+      d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}),
+      c.name, GROUP[c.group].label,
+      (e.description||"").replace(/[;\n]/g," "),
+      e.amount.toFixed(2).replace(".",",")
+    ]);
+  });
+  // total ao final
+  const tot=lista.reduce((s,e)=>s+e.amount,0);
+  linhas.push([]); linhas.push(["","","","","TOTAL",tot.toFixed(2).replace(".",",")]);
+  return "\uFEFF"+linhas.map(r=>r.join(";")).join("\r\n"); // BOM p/ Excel ler acentos
+}
+
+$("btnCSV").onclick=()=>{
+  if(!currentInP.length){ showToast("Nada para exportar neste período"); return; }
+  const {start}=periodRange();
+  const rot = period==="week"
+    ? "semana-"+new Date(start).toISOString().slice(0,10)
+    : new Date(start).toISOString().slice(0,7);
+  baixarArquivo(`gastos-${rot}.csv`, gerarCSV(currentInP), "text/csv;charset=utf-8");
+  showToast("CSV baixado ✓");
+};
+
+$("btnBackup").onclick=()=>{
+  if(!expenses.length){ showToast("Sem dados para backup"); return; }
+  const hoje=new Date().toISOString().slice(0,10);
+  baixarArquivo(`backup-gastos-${hoje}.json`, JSON.stringify(expenses), "application/json");
+  showToast("Backup completo baixado ✓");
+};
+
+$("btnRestore").onclick=()=>$("fileRestore").click();
+$("fileRestore").onchange=(ev)=>{
+  const f=ev.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const dados=JSON.parse(r.result);
+      if(!Array.isArray(dados)) throw new Error("formato");
+      const ids=new Set(expenses.map(e=>e.id)); let add=0;
+      dados.forEach(e=>{ if(e&&e.id&&!ids.has(e.id)&&CAT_BY_ID[e.categoryId]){ expenses.push(e); ids.add(e.id); add++; }});
+      expenses.sort((a,b)=>b.ts-a.ts); save(); renderViz(); renderRecent();
+      showToast(add?`${add} lançamento(s) restaurado(s) ✓`:"Nada novo para restaurar");
+    }catch(err){ showToast("Arquivo de backup inválido"); }
+  };
+  r.readAsText(f); ev.target.value="";
+};
+
 /* =============================================================
    Navegação de abas + período
 ============================================================= */
@@ -459,8 +598,10 @@ function goto(tab){
 }
 $("tabReg").onclick=()=>goto("reg");
 $("tabViz").onclick=()=>goto("viz");
-$("pWeek").onclick=()=>{ period="week"; $("pWeek").classList.add("on"); $("pMonth").classList.remove("on"); renderViz(); };
-$("pMonth").onclick=()=>{ period="month"; $("pMonth").classList.add("on"); $("pWeek").classList.remove("on"); renderViz(); };
+$("pWeek").onclick=()=>{ period="week"; offset=0; $("pWeek").classList.add("on"); $("pMonth").classList.remove("on"); renderViz(); };
+$("pMonth").onclick=()=>{ period="month"; offset=0; $("pMonth").classList.add("on"); $("pWeek").classList.remove("on"); renderViz(); };
+$("navPrev").onclick=()=>{ offset--; renderViz(); };
+$("navNext").onclick=()=>{ if(offset<0){ offset++; renderViz(); } };
 
 /* init */
 renderRecent();
