@@ -1,7 +1,7 @@
 {
-  "name": "Gastos por Voz",
-  "short_name": "Gastos",
-  "description": "Registre gastos por voz e veja para onde vai o dinheiro.",
+  "name": "Finanças do Casal",
+  "short_name": "Finanças",
+  "description": "Gastos, cartões, parcelas e dívidas do casal.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
