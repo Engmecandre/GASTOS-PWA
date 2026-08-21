@@ -110,7 +110,7 @@ svg text{font-family:'Hanken Grotesk',sans-serif;}
     </div>
   </div>
 
-  <div class="kick" style="margin-top:22px;margin-bottom:10px;">Lançamentos recentes</div>
+  <div class="kick" style="margin-top:22px;margin-bottom:10px;">Lançamentos recentes <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400;">· ✏️ para editar</span></div>
   <div id="recentList"></div>
 </div>
 
@@ -379,6 +379,8 @@ function renderEntrySheet(){
     <input id="dDesc" class="field" value="${(draft.description||'').replace(/"/g,'&quot;')}" placeholder="descrição">
     <div class="lbl">Categoria</div>
     <select id="dCat" class="field">${catOpts}</select>
+    <div class="lbl">Data e hora</div>
+    <input id="dDate" class="field" type="datetime-local" value="${tsToLocalInput(draft.ts)}">
     <div class="lbl">Forma de pagamento</div>
     <div id="payChips" style="display:flex;flex-wrap:wrap;gap:7px;">${payChips}</div>
     <div id="credBox" class="${isCred?'':'hide'}">
@@ -399,15 +401,18 @@ function renderEntrySheet(){
   $("dParc").oninput=e=>{draft.parcelas=Math.max(1,parseInt(e.target.value||"1"));updDueHint();};
   $("dAmt").oninput=e=>{draft.amount=e.target.value;updDueHint();};
   $("dDesc").oninput=e=>draft.description=e.target.value;
+  if($("dDate"))$("dDate").onchange=e=>{if(e.target.value)draft.ts=new Date(e.target.value).getTime();};
   $("dCancel").onclick=closeModal;
   $("dSave").onclick=saveEntry;
   updDueHint();
 }
 function syncDraft(){if($("dAmt"))draft.amount=$("dAmt").value;if($("dDesc"))draft.description=$("dDesc").value;if(draft.payMethod==="credito"&&draft.cardId&&!draft.firstDueTs){const c=cardById(draft.cardId);if(c)draft.firstDueTs=nextDue(c.dueDay);}}
 function updDueHint(){const el=$("dueHint");if(!el)return;const p=draft.parcelas||1;const amt=parseFloat(String(draft.amount).replace(/\./g,"").replace(",","."))||0;if((draft.payMethod==="credito"||draft.payMethod==="boleto")&&p>1&&amt>0&&draft.firstDueTs){el.textContent=`${p}x de ${brl(amt/p)} · 1ª em ${new Date(draft.firstDueTs).toLocaleDateString("pt-BR",{month:"short",year:"2-digit"})}`;}else el.textContent="";}
+function tsToLocalInput(ts){const d=new Date(ts||Date.now());const p=n=>String(n).padStart(2,"0");return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"T"+p(d.getHours())+":"+p(d.getMinutes());}
 function saveEntry(){
   const amt=parseFloat(String($("dAmt").value).replace(/\./g,"").replace(",","."));
   if(!amt||amt<=0){showToast("Informe um valor válido");return;}
+  if($("dDate")&&$("dDate").value)draft.ts=new Date($("dDate").value).getTime();
   draft.amount=amt;draft.description=$("dDesc").value.trim();draft.categoryId=+$("dCat").value;
   if((draft.payMethod==="credito"||draft.payMethod==="boleto")){draft.cardId=$("dCard").value||null;draft.parcelas=Math.max(1,parseInt($("dParc").value||"1"));const c=cardById(draft.cardId);draft.firstDueTs=c?nextDue(c.dueDay):draft.ts;}
   else{draft.cardId=null;draft.parcelas=1;draft.firstDueTs=draft.ts;}
@@ -428,9 +433,11 @@ function renderRecent(){
         <div class="muted" style="font-size:12px;">${c.short} · ${pm.icon}${e.cardId?" "+(cardById(e.cardId)||{name:""}).name.split(" ")[0]:""}${parc} · ${d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</div>
       </div>
       <div class="serif" style="font-size:15px;font-weight:500;">${brl(e.amount)}</div>
+      <button class="btn" data-pen="${e.id}" style="background:transparent;color:var(--mut);padding:6px;">✏️</button>
       <button class="btn" data-del="${e.id}" style="background:transparent;color:var(--mut2);padding:6px;">🗑</button>
     </div>`;}).join("");
   el.querySelectorAll("[data-del]").forEach(b=>b.onclick=ev=>{ev.stopPropagation();store.expenses=store.expenses.filter(x=>x.id!=b.dataset.del);save();renderRecent();});
+  el.querySelectorAll("[data-pen]").forEach(b=>b.onclick=ev=>{ev.stopPropagation();const e=store.expenses.find(x=>x.id==b.dataset.pen);if(e)openEntry("",e);});
   el.querySelectorAll("[data-edit]").forEach(r=>r.onclick=()=>{const e=store.expenses.find(x=>x.id==r.dataset.edit);if(e)openEntry("",e);});
 }
 
@@ -478,7 +485,8 @@ function renderViz(){
     <div class="card"><div class="kick" style="margin-bottom:8px;">Por forma de pagamento</div>${pmRows}</div>`;
 }
 function renderFullList(inP){const wrap=$("fullListWrap"),list=$("fullList");if(!inP.length){wrap.classList.add("hide");return;}wrap.classList.remove("hide");$("fullCount").textContent=`(${inP.length})`;
-  list.innerHTML=inP.map(e=>{const c=catById(e.categoryId),d=new Date(e.ts),pm=PAY[e.payMethod]||PAY.nao_informado;return `<div class="row"><span class="dot" style="background:${c.color}"></span><div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${e.description||c.name}</div><div class="muted" style="font-size:12px;">${c.short} · ${pm.icon} · ${d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</div></div><div class="serif" style="font-size:15px;">${brl(e.amount)}</div><button class="btn" data-del="${e.id}" style="background:transparent;color:var(--mut2);padding:6px;">🗑</button></div>`;}).join("");
+  list.innerHTML=inP.map(e=>{const c=catById(e.categoryId),d=new Date(e.ts),pm=PAY[e.payMethod]||PAY.nao_informado;return `<div class="row"><span class="dot" style="background:${c.color}"></span><div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${e.description||c.name}</div><div class="muted" style="font-size:12px;">${c.short} · ${pm.icon} · ${d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</div></div><div class="serif" style="font-size:15px;">${brl(e.amount)}</div><button class="btn" data-pen="${e.id}" style="background:transparent;color:var(--mut);padding:6px;">✏️</button><button class="btn" data-del="${e.id}" style="background:transparent;color:var(--mut2);padding:6px;">🗑</button></div>`;}).join("");
+  list.querySelectorAll("[data-pen]").forEach(b=>b.onclick=()=>{const e=store.expenses.find(x=>x.id==b.dataset.pen);if(e)openEntry("",e);});
   list.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{store.expenses=store.expenses.filter(x=>x.id!=b.dataset.del);save();renderViz();renderRecent();});}
 $("pWeek").onclick=()=>{period="week";offset=0;$("pWeek").classList.add("on");$("pMonth").classList.remove("on");renderViz();};
 $("pMonth").onclick=()=>{period="month";offset=0;$("pMonth").classList.add("on");$("pWeek").classList.remove("on");renderViz();};
