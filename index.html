@@ -159,6 +159,9 @@ svg text{font-family:'Hanken Grotesk',sans-serif;}
   <div class="kick">Configurações</div>
   <h1 class="h1">Ajustes</h1>
 
+  <div class="kick" style="margin:18px 0 10px;">Sincronização (Fase 2)</div>
+  <div id="syncBox"></div>
+
   <div class="kick" style="margin:18px 0 10px;">Cartões de crédito</div>
   <div id="setCards"></div>
   <button id="addCard" class="btn btn-ghost" style="width:100%;padding:12px;margin-top:10px;">+ Adicionar cartão</button>
@@ -199,7 +202,26 @@ svg text{font-family:'Hanken Grotesk',sans-serif;}
   <button id="tabSet" class="tabbtn"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>Ajustes</button>
 </nav>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 <script>
+/* ============================================================
+   FASE 2 — Sincronização (Firebase). Camada opcional e não-destrutiva:
+   se falhar ou offline, o app segue funcionando local.
+============================================================ */
+const FIREBASE_CONFIG={
+  apiKey:"AIzaSyBXcyUGRsWsDwH-D_klVyMY-4uNgGqVyyw",
+  authDomain:"financas-casal-66490.firebaseapp.com",
+  projectId:"financas-casal-66490",
+  storageBucket:"financas-casal-66490.firebasestorage.app",
+  messagingSenderId:"391725014731",
+  appId:"1:391725014731:web:7b9d0aae7ddc2b66f2c54e"
+};
+let cloud={available:false,on:false,base:null,user:null,unsub:[],status:""};
+const clean=o=>JSON.parse(JSON.stringify(o));
+function unionById(primary,secondary){const m={};(secondary||[]).forEach(x=>m[x.id]=x);(primary||[]).forEach(x=>m[x.id]=x);return Object.values(m);}
+
 /* ============================================================
    MODELO DE DADOS (v2)  — chave mantida p/ migrar dados antigos
 ============================================================ */
@@ -264,8 +286,78 @@ function loadStore(){
   }
   return {version:2,categories:defaultCategories(),cards:defaultCards(),financings:defaultFinancings(),expenses:[]};
 }
-function save(){ try{ localStorage.setItem(KEY,JSON.stringify(store)); }catch(e){} }
+let _cfgTimer=null;
+function save(){ try{ localStorage.setItem(KEY,JSON.stringify(store)); }catch(e){} if(cloud.on){ clearTimeout(_cfgTimer); _cfgTimer=setTimeout(cloudCfg,800); } }
 store=loadStore(); save();
+
+/* ---- sincronização ---- */
+function rerender(){ try{ renderRecent(); const vis=id=>$(id)&&!$(id).classList.contains("hide"); if(vis("screen-viz"))renderViz(); if(vis("screen-debt"))renderDebt(); if(vis("screen-set"))renderSettings(); }catch(e){} }
+function setSyncStatus(s){ cloud.status=s; const el=$("syncStatus"); if(el)el.textContent=s; }
+function cloudPut(e){ if(cloud.on&&cloud.base){ try{ cloud.base.collection("expenses").doc(String(e.id)).set(clean(e)); }catch(x){} } }
+function cloudDel(id){ if(cloud.on&&cloud.base){ try{ cloud.base.collection("expenses").doc(String(id)).delete(); }catch(x){} } }
+function cloudCfg(){ if(cloud.on&&cloud.base){ try{ cloud.base.collection("meta").doc("config").set(clean({categories:store.categories,cards:store.cards,financings:store.financings})); }catch(x){} } }
+
+async function startSync(u){
+  try{
+    cloud.base=cloud.db.collection("users").doc(u.uid);
+    setSyncStatus("Sincronizando…");
+    // 1) envia lançamentos locais que ainda não estão na nuvem (união por id, nunca apaga)
+    const snap=await cloud.base.collection("expenses").get();
+    const cloudIds=new Set(); snap.forEach(d=>cloudIds.add(d.id));
+    const missing=store.expenses.filter(e=>!cloudIds.has(String(e.id)));
+    for(let i=0;i<missing.length;i+=400){
+      const batch=cloud.db.batch();
+      missing.slice(i,i+400).forEach(e=>batch.set(cloud.base.collection("expenses").doc(String(e.id)),clean(e)));
+      await batch.commit();
+    }
+    // 2) config: adota a da nuvem unindo com a local (não perde cartões/categorias locais)
+    const cfgRef=cloud.base.collection("meta").doc("config");
+    const cfg=await cfgRef.get();
+    if(cfg.exists){ const c=cfg.data();
+      store.categories=unionById(c.categories,store.categories);
+      store.cards=unionById(c.cards,store.cards);
+      store.financings=unionById(c.financings,store.financings);
+    }
+    await cfgRef.set(clean({categories:store.categories,cards:store.cards,financings:store.financings}));
+    try{ localStorage.setItem(KEY,JSON.stringify(store)); }catch(e){}
+    // 3) escuta em tempo real
+    cloud.on=true;
+    cloud.unsub.push(cloud.base.collection("expenses").onSnapshot(s=>{
+      s.docChanges().forEach(ch=>{ const e=ch.doc.data();
+        if(ch.type==="removed"){ store.expenses=store.expenses.filter(x=>String(x.id)!==ch.doc.id); }
+        else { const i=store.expenses.findIndex(x=>String(x.id)===ch.doc.id); if(i>=0)store.expenses[i]=e; else store.expenses.push(e); }
+      });
+      store.expenses.sort((a,b)=>b.ts-a.ts); try{localStorage.setItem(KEY,JSON.stringify(store));}catch(e){} rerender();
+    },err=>setSyncStatus("Erro: "+(err.code||"conexão"))));
+    cloud.unsub.push(cfgRef.onSnapshot(d=>{ if(d.exists){ const c=d.data();
+      if(c.categories)store.categories=c.categories; if(c.cards)store.cards=c.cards; if(c.financings)store.financings=c.financings;
+      try{localStorage.setItem(KEY,JSON.stringify(store));}catch(e){} rerender(); }
+    }));
+    setSyncStatus("Sincronizado ✓"); rerender();
+  }catch(err){ cloud.on=false; setSyncStatus("Falha: "+(err.code||err.message||"erro")); }
+}
+function stopSync(){ cloud.on=false; (cloud.unsub||[]).forEach(fn=>{try{fn();}catch(e){}}); cloud.unsub=[]; cloud.base=null; }
+
+async function cloudSignIn(email,pass,create){
+  if(!cloud.available){ showToast("Firebase indisponível"); return; }
+  try{ setSyncStatus("Entrando…");
+    if(create) await cloud.auth.createUserWithEmailAndPassword(email,pass);
+    else await cloud.auth.signInWithEmailAndPassword(email,pass);
+  }catch(err){ setSyncStatus(""); showToast("Erro: "+(err.code||"").replace("auth/","")); }
+}
+function cloudSignOut(){ if(cloud.auth) cloud.auth.signOut(); }
+
+function initFirebase(){
+  try{
+    if(!window.firebase||!firebase.initializeApp){ return; }
+    firebase.initializeApp(FIREBASE_CONFIG);
+    cloud.auth=firebase.auth(); cloud.db=firebase.firestore();
+    cloud.db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+    cloud.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
+    cloud.available=true;
+    cloud.auth.onAuthStateChanged(u=>{ cloud.user=u; if(u){ startSync(u); } else { stopSync(); setSyncStatus(""); } if($("syncBox"))renderSync(); });
+  }catch(err){ cloud.available=false; }
+}
 
 /* ---- atalhos ---- */
 const catById=id=>store.categories.find(c=>c.id==id)||store.categories[0];
@@ -418,7 +510,7 @@ function saveEntry(){
   else{draft.cardId=null;draft.parcelas=1;draft.firstDueTs=draft.ts;}
   const i=store.expenses.findIndex(e=>e.id===draft.id);
   if(i>=0)store.expenses[i]=draft; else store.expenses.unshift(draft);
-  store.expenses.sort((a,b)=>b.ts-a.ts); save();
+  store.expenses.sort((a,b)=>b.ts-a.ts); save(); cloudPut(draft);
   closeModal();renderRecent();showToast("Registrado ✓");
 }
 
@@ -436,7 +528,7 @@ function renderRecent(){
       <button class="btn" data-pen="${e.id}" style="background:transparent;color:var(--mut);padding:6px;">✏️</button>
       <button class="btn" data-del="${e.id}" style="background:transparent;color:var(--mut2);padding:6px;">🗑</button>
     </div>`;}).join("");
-  el.querySelectorAll("[data-del]").forEach(b=>b.onclick=ev=>{ev.stopPropagation();store.expenses=store.expenses.filter(x=>x.id!=b.dataset.del);save();renderRecent();});
+  el.querySelectorAll("[data-del]").forEach(b=>b.onclick=ev=>{ev.stopPropagation();cloudDel(b.dataset.del);store.expenses=store.expenses.filter(x=>x.id!=b.dataset.del);save();renderRecent();});
   el.querySelectorAll("[data-pen]").forEach(b=>b.onclick=ev=>{ev.stopPropagation();const e=store.expenses.find(x=>x.id==b.dataset.pen);if(e)openEntry("",e);});
   el.querySelectorAll("[data-edit]").forEach(r=>r.onclick=()=>{const e=store.expenses.find(x=>x.id==r.dataset.edit);if(e)openEntry("",e);});
 }
@@ -487,7 +579,7 @@ function renderViz(){
 function renderFullList(inP){const wrap=$("fullListWrap"),list=$("fullList");if(!inP.length){wrap.classList.add("hide");return;}wrap.classList.remove("hide");$("fullCount").textContent=`(${inP.length})`;
   list.innerHTML=inP.map(e=>{const c=catById(e.categoryId),d=new Date(e.ts),pm=PAY[e.payMethod]||PAY.nao_informado;return `<div class="row"><span class="dot" style="background:${c.color}"></span><div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${e.description||c.name}</div><div class="muted" style="font-size:12px;">${c.short} · ${pm.icon} · ${d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</div></div><div class="serif" style="font-size:15px;">${brl(e.amount)}</div><button class="btn" data-pen="${e.id}" style="background:transparent;color:var(--mut);padding:6px;">✏️</button><button class="btn" data-del="${e.id}" style="background:transparent;color:var(--mut2);padding:6px;">🗑</button></div>`;}).join("");
   list.querySelectorAll("[data-pen]").forEach(b=>b.onclick=()=>{const e=store.expenses.find(x=>x.id==b.dataset.pen);if(e)openEntry("",e);});
-  list.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{store.expenses=store.expenses.filter(x=>x.id!=b.dataset.del);save();renderViz();renderRecent();});}
+  list.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{cloudDel(b.dataset.del);store.expenses=store.expenses.filter(x=>x.id!=b.dataset.del);save();renderViz();renderRecent();});}
 $("pWeek").onclick=()=>{period="week";offset=0;$("pWeek").classList.add("on");$("pMonth").classList.remove("on");renderViz();};
 $("pMonth").onclick=()=>{period="month";offset=0;$("pMonth").classList.add("on");$("pWeek").classList.remove("on");renderViz();};
 $("navPrev").onclick=()=>{offset--;renderViz();};
@@ -514,7 +606,34 @@ function renderDebt(){
 /* ============================================================
    AJUSTES — cartões, financiamentos, categorias, backup
 ============================================================ */
+function renderSync(){
+  const box=$("syncBox"); if(!box) return;
+  if(!cloud.available){ box.innerHTML=`<div class="card muted" style="font-size:13px;">Firebase não carregou (sem internet na 1ª abertura?). O app funciona local normalmente; a sincronização liga quando houver conexão.</div>`; return; }
+  if(cloud.user){
+    box.innerHTML=`<div class="card">
+      <div style="display:flex;align-items:center;gap:8px;"><span style="width:9px;height:9px;border-radius:50%;background:${cloud.on?'#5C8A4C':'#C9A227'};"></span>
+      <div style="flex:1;"><div style="font-weight:600;font-size:14px;">${cloud.user.email}</div><div class="muted" style="font-size:12px;" id="syncStatus">${cloud.status||'conectando…'}</div></div></div>
+      <button id="btnSignOut" class="btn btn-ghost" style="width:100%;padding:11px;margin-top:12px;">Sair da conta</button>
+      <div class="muted" style="font-size:12px;margin-top:10px;line-height:1.5;">Este aparelho está sincronizando. O que um registra aparece no outro em segundos. Funciona offline e envia quando reconecta.</div>
+    </div>`;
+    $("btnSignOut").onclick=()=>{ if(confirm("Sair? Os dados continuam salvos neste aparelho.")) cloudSignOut(); };
+  }else{
+    box.innerHTML=`<div class="card">
+      <div class="muted" style="font-size:13px;line-height:1.5;margin-bottom:10px;">Entrem os dois com o <b>mesmo e-mail e senha</b> (conta compartilhada do casal). Quem ainda não criou a conta usa "Criar conta"; o outro usa "Entrar".</div>
+      <input id="syncEmail" class="field" type="email" placeholder="e-mail compartilhado" style="margin-bottom:8px;">
+      <input id="syncPass" class="field" type="password" placeholder="senha (mín. 6 caracteres)">
+      <div id="syncStatus" class="muted" style="font-size:12px;margin-top:8px;min-height:16px;">${cloud.status||''}</div>
+      <div style="display:flex;gap:10px;margin-top:12px;">
+        <button id="btnCreate" class="btn btn-ghost" style="flex:1;padding:12px;">Criar conta</button>
+        <button id="btnSignIn" class="btn btn-gold" style="flex:1;padding:12px;">Entrar</button>
+      </div>
+    </div>`;
+    $("btnSignIn").onclick=()=>{const e=$("syncEmail").value.trim(),p=$("syncPass").value;if(!e||p.length<6){showToast("Preencha e-mail e senha (6+)");return;}cloudSignIn(e,p,false);};
+    $("btnCreate").onclick=()=>{const e=$("syncEmail").value.trim(),p=$("syncPass").value;if(!e||p.length<6){showToast("Preencha e-mail e senha (6+)");return;}cloudSignIn(e,p,true);};
+  }
+}
 function renderSettings(){
+  renderSync();
   $("setCards").innerHTML=store.cards.map(c=>`<div class="row"><div style="flex:1;"><div style="font-weight:600;font-size:14px;">${c.name}</div><div class="muted" style="font-size:12px;">fecha dia ${c.closingDay} · vence dia ${c.dueDay}${c.limit?" · limite "+brl(c.limit):""}</div></div><button class="btn btn-ghost" data-ecard="${c.id}" style="padding:7px 11px;font-size:12px;">editar</button><button class="btn" data-dcard="${c.id}" style="background:transparent;color:var(--mut2);padding:6px;">🗑</button></div>`).join("");
   $("setCards").querySelectorAll("[data-ecard]").forEach(b=>b.onclick=()=>editCard(b.dataset.ecard));
   $("setCards").querySelectorAll("[data-dcard]").forEach(b=>b.onclick=()=>{if(confirm("Remover este cartão?")){store.cards=store.cards.filter(c=>c.id!=b.dataset.dcard);save();renderSettings();}});
@@ -577,7 +696,7 @@ function baixar(nome,cont,tipo){const b=new Blob([cont],{type:tipo}),u=URL.creat
 $("btnCSV").onclick=()=>{if(!store.expenses.length){showToast("Sem dados");return;}const L=[["Data","Hora","Categoria","Grupo","Forma","Cartão","Parcelas","Descrição","Valor"]];store.expenses.slice().sort((a,b)=>a.ts-b.ts).forEach(e=>{const c=catById(e.categoryId),d=new Date(e.ts);L.push([d.toLocaleDateString("pt-BR"),d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}),c.name,GROUP[c.group].label,(PAY[e.payMethod]||PAY.nao_informado).label,e.cardId?(cardById(e.cardId)||{name:""}).name:"",e.parcelas||1,(e.description||"").replace(/[;\n]/g," "),e.amount.toFixed(2).replace(".",",")]);});baixar(`gastos-${new Date().toISOString().slice(0,10)}.csv`,"\uFEFF"+L.map(r=>r.join(";")).join("\r\n"),"text/csv;charset=utf-8");showToast("CSV baixado ✓");};
 $("btnBackup").onclick=()=>{baixar(`backup-financas-${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(store),"application/json");showToast("Backup baixado ✓");};
 $("btnRestore").onclick=()=>$("fileRestore").click();
-$("fileRestore").onchange=ev=>{const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(Array.isArray(d)){const ids=new Set(store.expenses.map(e=>e.id));let add=0;d.forEach(e=>{if(e&&e.id&&!ids.has(e.id)){store.expenses.push({...e,payMethod:e.payMethod||"nao_informado",parcelas:e.parcelas||1,cardId:e.cardId||null,firstDueTs:e.firstDueTs||e.ts});add++;}});store.expenses.sort((a,b)=>b.ts-a.ts);save();showToast(add+" restaurado(s) ✓");}else if(d.version>=2){const ids=new Set(store.expenses.map(e=>e.id));let add=0;(d.expenses||[]).forEach(e=>{if(!ids.has(e.id)){store.expenses.push(e);add++;}});if(d.cards)d.cards.forEach(c=>{if(!cardById(c.id))store.cards.push(c);});if(d.financings)d.financings.forEach(fn=>{if(!store.financings.find(x=>x.id==fn.id))store.financings.push(fn);});store.expenses.sort((a,b)=>b.ts-a.ts);save();showToast(add+" lançamento(s) restaurado(s) ✓");}renderRecent();renderSettings();}catch(err){showToast("Backup inválido");}};r.readAsText(f);ev.target.value="";};
+$("fileRestore").onchange=ev=>{const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(Array.isArray(d)){const ids=new Set(store.expenses.map(e=>e.id));let add=0;d.forEach(e=>{if(e&&e.id&&!ids.has(e.id)){store.expenses.push({...e,payMethod:e.payMethod||"nao_informado",parcelas:e.parcelas||1,cardId:e.cardId||null,firstDueTs:e.firstDueTs||e.ts});add++;}});store.expenses.sort((a,b)=>b.ts-a.ts);save();showToast(add+" restaurado(s) ✓");}else if(d.version>=2){const ids=new Set(store.expenses.map(e=>e.id));let add=0;(d.expenses||[]).forEach(e=>{if(!ids.has(e.id)){store.expenses.push(e);add++;}});if(d.cards)d.cards.forEach(c=>{if(!cardById(c.id))store.cards.push(c);});if(d.financings)d.financings.forEach(fn=>{if(!store.financings.find(x=>x.id==fn.id))store.financings.push(fn);});store.expenses.sort((a,b)=>b.ts-a.ts);save();showToast(add+" lançamento(s) restaurado(s) ✓");}renderRecent();renderSettings();if(cloud.on){store.expenses.forEach(e=>cloudPut(e));cloudCfg();}}catch(err){showToast("Backup inválido");}};r.readAsText(f);ev.target.value="";};
 
 /* ============================================================
    RELATÓRIO PDF
@@ -627,6 +746,7 @@ $("tabReg").onclick=()=>goto("reg");$("tabViz").onclick=()=>goto("viz");$("tabDe
 
 /* init */
 renderRecent();
+initFirebase();
 if(store.migrated){delete store.migrated;save();setTimeout(()=>showToast("Dados anteriores migrados ✓"),600);}
 
 if("serviceWorker" in navigator){window.addEventListener("load",()=>{navigator.serviceWorker.register("./sw.js").catch(()=>{});});}
