@@ -148,7 +148,7 @@ svg text{font-family:'Hanken Grotesk',sans-serif;}
   </div>
   <div class="kick" style="margin:18px 0 10px;">Orçamento mês a mês (pago × a pagar)</div>
   <div id="budgetChart"></div>
-  <div class="kick" style="margin:22px 0 10px;">Próximos meses</div>
+  <div class="kick" style="margin:22px 0 10px;">Mês a mês · toque para ver o detalhe</div>
   <div id="timeline"></div>
   <div class="kick" style="margin:22px 0 10px;">Por cartão</div>
   <div id="cardsDebt"></div>
@@ -672,15 +672,30 @@ function renderDebt(){
   const ev=cashEvents(); const byM={}; ev.forEach(x=>byM[x.ym]=(byM[x.ym]||0)+x.amount);
   const now=ymNow(); const cols=[]; for(let k=-5;k<=12;k++)cols.push(now+k);
   const maxB=Math.max(1,...cols.map(y=>byM[y]||0));
+  // comparativo pago (6 meses atrás) x a pagar (6 meses à frente)
+  let pago6=0,apagar6=0;for(let k=1;k<=6;k++){pago6+=byM[now-k]||0;apagar6+=byM[now+k]||0;}
+  const dir=apagar6>pago6?"▲ subindo":apagar6<pago6?"▼ caindo":"→ estável";
+  const dirCor=apagar6>pago6?"#C2553B":apagar6<pago6?"#5C8A4C":"var(--mut)";
   $("budgetChart").innerHTML=`<div class="card"><div style="display:flex;align-items:flex-end;gap:3px;height:120px;">`+
     cols.map(y=>{const v=byM[y]||0,h=v/maxB*96,fut=y>now,cur=y===now;
       return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;">
         <div style="width:100%;height:${h}px;border-radius:4px 4px 0 0;background:${cur?'var(--gold)':fut?'#7E9BC4':'#5C8A4C'};"></div>
         <div style="font-size:8px;color:var(--mut2);margin-top:3px;transform:rotate(-60deg);white-space:nowrap;height:22px;">${ymLabel(y)}</div></div>`;}).join("")+
-    `</div><div class="muted" style="font-size:11px;margin-top:6px;"><span style="color:#5C8A4C">■</span> pago &nbsp; <span style="color:var(--gold)">■</span> mês atual &nbsp; <span style="color:#7E9BC4">■</span> a pagar</div></div>`;
-  // timeline
-  const maxV=Math.max(1,...yms.map(y=>s.byMonth[y].total));
-  $("timeline").innerHTML=yms.slice(0,18).map(y=>{const o=s.byMonth[y];return `<div style="margin-bottom:9px;"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;"><span style="text-transform:capitalize;">${ymLabel(y)}</span><span class="serif">${brl(o.total)}</span></div><div class="bar-h" style="display:flex;"><i style="width:${o.card/maxV*100}%;background:var(--gold)"></i><i style="width:${o.fin/maxV*100}%;background:#7E9BC4"></i></div></div>`;}).join("")+`<div class="muted" style="font-size:11px;margin-top:8px;"><span style="color:var(--gold)">■</span> cartões &nbsp; <span style="color:#7E9BC4">■</span> financiamentos/boletos</div>`;
+    `</div><div class="muted" style="font-size:11px;margin-top:6px;"><span style="color:#5C8A4C">■</span> pago &nbsp; <span style="color:var(--gold)">■</span> mês atual &nbsp; <span style="color:#7E9BC4">■</span> a pagar</div>
+    <div style="display:flex;justify-content:space-between;margin-top:12px;border-top:1px solid var(--line);padding-top:12px;">
+      <div><div class="muted" style="font-size:11px;">Pago (6 meses)</div><div class="serif" style="font-size:16px;">${brl(pago6)}</div></div>
+      <div style="text-align:center;align-self:center;"><span style="color:${dirCor};font-size:13px;font-weight:600;">${dir}</span></div>
+      <div style="text-align:right;"><div class="muted" style="font-size:11px;">A pagar (6 meses)</div><div class="serif" style="font-size:16px;">${brl(apagar6)}</div></div>
+    </div></div>`;
+  // lista mês a mês (passado + futuro), tocável para abrir o detalhe na Análise
+  const listYMs=cols.filter(y=>(byM[y]||0)>0 || y===now);
+  $("timeline").innerHTML=listYMs.map(y=>{const v=byM[y]||0,fut=y>now,cur=y===now;
+    return `<div class="row" data-mes="${y}" style="cursor:pointer;">
+      <span class="dot" style="background:${cur?'var(--gold)':fut?'#7E9BC4':'#5C8A4C'}"></span>
+      <div style="flex:1;"><div style="font-weight:600;font-size:14px;text-transform:capitalize;">${ymLabel(y)}${cur?' · atual':''}</div>
+      <div class="muted" style="font-size:12px;">${fut?'a pagar':(cur?'este mês':'pago')}</div></div>
+      <div class="serif" style="font-size:15px;">${brl(v)}</div><span class="muted" style="font-size:16px;">›</span></div>`;}).join("");
+  $("timeline").querySelectorAll("[data-mes]").forEach(r=>r.onclick=()=>gotoMonth(+r.dataset.mes));
   // por cartão
   $("cardsDebt").innerHTML=store.cards.map(c=>{const b=s.byCard[c.id];const open=b?b.open:0;return `<div class="row"><div style="flex:1;"><div style="font-weight:600;font-size:14px;">${c.name}</div><div class="muted" style="font-size:12px;">vence dia ${c.dueDay}${b&&b.nextYM!=null?" · próxima "+ymLabel(b.nextYM)+" "+brl(b.nextVal):" · sem parcelas"}</div></div><div style="text-align:right;"><div class="serif" style="font-size:15px;">${brl(open)}</div><div class="muted" style="font-size:11px;">em aberto</div></div></div>`;}).join("");
   // financiamentos
@@ -828,6 +843,9 @@ $("repPrint").onclick=()=>window.print();
 const screens={reg:"screen-reg",viz:"screen-viz",debt:"screen-debt",set:"screen-set"};
 const tabs={reg:"tabReg",viz:"tabViz",debt:"tabDebt",set:"tabSet"};
 function goto(tab){Object.keys(screens).forEach(k=>{$(screens[k]).classList.toggle("hide",k!==tab);$(tabs[k]).classList.toggle("on",k===tab);});if(tab==="viz")renderViz();if(tab==="debt")renderDebt();if(tab==="set")renderSettings();}
+function gotoMonth(ym){ period="month"; offset=ym-ymNow(); goto("viz"); window.scrollTo(0,0); }
+$("rangeLabel").onclick=()=>{ if(offset!==0){ offset=0; renderViz(); } };
+$("rangeLabel").style.cursor="pointer";
 $("tabReg").onclick=()=>goto("reg");$("tabViz").onclick=()=>goto("viz");$("tabDebt").onclick=()=>goto("debt");$("tabSet").onclick=()=>goto("set");
 
 /* init */
