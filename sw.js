@@ -1,5 +1,5 @@
 /* SERVICE WORKER — offline do app. Não intercepta Firebase/Google (deixa passar direto). */
-const VERSAO="financas-v6";
+const VERSAO="financas-v7";
 const ARQUIVOS=["./","./index.html","./manifest.webmanifest","./icon-192.png","./icon-512.png","./icon-512-mask.png"];
 self.addEventListener("install",e=>{e.waitUntil(caches.open(VERSAO).then(c=>c.addAll(ARQUIVOS)));self.skipWaiting();});
 self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(ns=>Promise.all(ns.filter(n=>n!==VERSAO).map(n=>caches.delete(n)))));self.clients.claim();});
