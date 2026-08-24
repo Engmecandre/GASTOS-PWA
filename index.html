@@ -377,6 +377,26 @@ const catById=id=>store.categories.find(c=>c.id==id)||store.categories[0];
 const cardById=id=>store.cards.find(c=>c.id==id);
 const activeCats=()=>store.categories.filter(c=>c.active);
 const brl=n=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(n||0);
+/* CONVERSOR ÚNICO de valores no padrão brasileiro (vírgula=decimal, ponto=milhar).
+   Também entende número já stringificado com ponto decimal ("74.18"). */
+function parseBRL(v){
+  if(typeof v==="number")return v;
+  let s=String(v==null?"":v).trim().replace(/[^\d.,-]/g,"");
+  if(!s)return NaN;
+  if(s.indexOf(",")>-1){ return parseFloat(s.replace(/\./g,"").replace(",",".")); } // BR: vírgula decimal
+  const dots=(s.match(/\./g)||[]).length;
+  if(dots===0)return parseFloat(s);
+  if(dots>1)return parseFloat(s.replace(/\./g,""));                 // 1.234.567 = milhares
+  const after=s.split(".")[1];
+  if(after.length===3)return parseFloat(s.replace(/\./g,""));       // 1.500 = milhar
+  return parseFloat(s);                                             // 74.18 = decimal
+}
+/* mostra um número no campo SEMPRE em formato BR (vírgula), evitando o bug do ponto */
+function amtToInput(v){
+  if(v===""||v==null)return"";
+  if(typeof v==="string")return v;            // usuário digitando: deixa como está
+  return String(v).replace(".",",");          // número -> vírgula decimal
+}
 const $=id=>document.getElementById(id);
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 function showToast(m){const t=$("toast");t.querySelector("span").textContent=m;t.classList.remove("hide");clearTimeout(showToast._t);showToast._t=setTimeout(()=>t.classList.add("hide"),1800);}
@@ -396,7 +416,7 @@ function nextDue(day){const now=new Date();let d=new Date(now.getFullYear(),now.
 ============================================================ */
 const NUM={zero:0,um:1,uma:1,dois:2,duas:2,tres:3,"três":3,quatro:4,cinco:5,seis:6,sete:7,oito:8,nove:9,dez:10,onze:11,doze:12,treze:13,quatorze:14,catorze:14,quinze:15,dezesseis:16,dezessete:17,dezoito:18,dezenove:19,vinte:20,trinta:30,quarenta:40,cinquenta:50,sessenta:60,setenta:70,oitenta:80,noventa:90,cem:100,cento:100,duzentos:200,trezentos:300,quatrocentos:400,quinhentos:500,seiscentos:600,setecentos:700,oitocentos:800,novecentos:900,mil:1000};
 function parseWordNumber(t){const toks=t.toLowerCase().replace(/[.,]/g," ").split(/\s+/).filter(Boolean);let tot=0,cur=0,f=false;for(const x of toks){if(x==="e")continue;if(x==="mil"){tot+=(cur||1)*1000;cur=0;f=true;continue;}if(NUM[x]!==undefined){cur+=NUM[x];f=true;}}tot+=cur;return f&&tot>0?tot:null;}
-function extractAmount(text){const l=text.toLowerCase();const m=l.match(/\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?|\d+(?:\.\d{1,2})?/);if(m){let s=m[0];if(s.includes(","))s=s.replace(/\./g,"").replace(",",".");const v=parseFloat(s);if(!isNaN(v))return v;}return parseWordNumber(text);}
+function extractAmount(text){const l=text.toLowerCase();const m=l.match(/\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?|\d+(?:\.\d{1,2})?/);if(m){const v=parseBRL(m[0]);if(!isNaN(v))return v;}return parseWordNumber(text);}
 function categorize(text){const l=" "+text.toLowerCase()+" ";for(const c of activeCats()){if((c.kw||[]).some(k=>l.includes(k)))return c.id;}return null;}
 function detectParcelas(text){const l=text.toLowerCase();let m=l.match(/(\d{1,2})\s*(?:x|vezes|parcelas)/);if(m)return parseInt(m[1]);return 1;}
 function detectCard(text){const l=text.toLowerCase();for(const c of store.cards){const key=c.name.toLowerCase().split(" ")[0];if(l.includes(c.name.toLowerCase())||l.includes(key))return c.id;}if(l.includes("mercado pago"))return (store.cards.find(c=>/mercado pago/i.test(c.name))||{}).id;return null;}
@@ -506,7 +526,7 @@ function renderEntrySheet(){
     <div class="kick" style="color:var(--gold);">Novo lançamento</div>
     <div style="display:flex;align-items:baseline;gap:8px;margin:10px 0 4px;">
       <span class="serif muted" style="font-size:20px;">R$</span>
-      <input id="dAmt" class="serif" inputmode="decimal" value="${draft.amount}" placeholder="0,00" style="background:transparent;border:none;border-bottom:2px solid var(--line);color:var(--ink);font-size:32px;width:150px;font-weight:500;">
+      <input id="dAmt" class="serif" inputmode="decimal" value="${amtToInput(draft.amount)}" placeholder="0,00" style="background:transparent;border:none;border-bottom:2px solid var(--line);color:var(--ink);font-size:32px;width:150px;font-weight:500;">
     </div>
     <div class="lbl">Descrição</div>
     <input id="dDesc" class="field" value="${(draft.description||'').replace(/"/g,'&quot;')}" placeholder="descrição">
@@ -543,10 +563,10 @@ function renderEntrySheet(){
   updDueHint();
 }
 function syncDraft(){if($("dAmt"))draft.amount=$("dAmt").value;if($("dDesc"))draft.description=$("dDesc").value;if((draft.payMethod==="credito"||draft.payMethod==="boleto")&&draft.cardId&&!draft.firstDueTs){const c=cardById(draft.cardId);if(c)draft.firstDueTs=firstDueForCard(draft.ts,c);}}
-function updDueHint(){const el=$("dueHint");if(!el)return;const p=draft.parcelas||1;const amt=parseFloat(String(draft.amount).replace(/\./g,"").replace(",","."))||0;if((draft.payMethod==="credito"||draft.payMethod==="boleto")&&p>1&&amt>0&&draft.firstDueTs){el.textContent=`${p}x de ${brl(amt/p)} · 1ª em ${new Date(draft.firstDueTs).toLocaleDateString("pt-BR",{month:"short",year:"2-digit"})}`;}else el.textContent="";}
+function updDueHint(){const el=$("dueHint");if(!el)return;const p=draft.parcelas||1;const amt=parseBRL(draft.amount)||0;if((draft.payMethod==="credito"||draft.payMethod==="boleto")&&p>1&&amt>0&&draft.firstDueTs){el.textContent=`${p}x de ${brl(amt/p)} · 1ª em ${new Date(draft.firstDueTs).toLocaleDateString("pt-BR",{month:"short",year:"2-digit"})}`;}else el.textContent="";}
 function tsToLocalInput(ts){const d=new Date(ts||Date.now());const p=n=>String(n).padStart(2,"0");return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"T"+p(d.getHours())+":"+p(d.getMinutes());}
 function saveEntry(){
-  const amt=parseFloat(String($("dAmt").value).replace(/\./g,"").replace(",","."));
+  const amt=parseBRL($("dAmt").value);
   if(!amt||amt<=0){showToast("Informe um valor válido");return;}
   if($("dDate")&&$("dDate").value)draft.ts=new Date($("dDate").value).getTime();
   draft.amount=amt;draft.description=$("dDesc").value.trim();draft.categoryId=+$("dCat").value;
@@ -751,11 +771,11 @@ function editCard(id){
     <div class="lbl">Nome</div><input id="kName" class="field" value="${(c.name||'').replace(/"/g,'&quot;')}" placeholder="ex: Nubank André">
     <div class="lbl">Dia de vencimento</div><input id="kDue" class="field" inputmode="numeric" value="${c.dueDay}">
     <div class="lbl">Dia de fechamento (aprox.)</div><input id="kClose" class="field" inputmode="numeric" value="${c.closingDay}">
-    <div class="lbl">Limite (opcional)</div><input id="kLim" class="field" inputmode="decimal" value="${c.limit||''}" placeholder="0">
+    <div class="lbl">Limite (opcional)</div><input id="kLim" class="field" inputmode="decimal" value="${c.limit?amtToInput(c.limit):''}" placeholder="0">
     <div style="display:flex;gap:10px;margin-top:16px;"><button id="kCancel" class="btn btn-ghost" style="flex:1;padding:13px;">Cancelar</button><button id="kSave" class="btn btn-gold" style="flex:2;padding:13px;">Salvar</button></div>`;
   openModal();
   $("kCancel").onclick=closeModal;
-  $("kSave").onclick=()=>{c.name=$("kName").value.trim()||"Cartão";c.dueDay=Math.min(28,Math.max(1,parseInt($("kDue").value||"10")));c.closingDay=Math.min(28,Math.max(1,parseInt($("kClose").value||"3")));c.limit=parseFloat(String($("kLim").value).replace(/\./g,"").replace(",","."))||0;if(c._new){delete c._new;store.cards.push(c);}save();closeModal();renderSettings();};
+  $("kSave").onclick=()=>{c.name=$("kName").value.trim()||"Cartão";c.dueDay=Math.min(28,Math.max(1,parseInt($("kDue").value||"10")));c.closingDay=Math.min(28,Math.max(1,parseInt($("kClose").value||"3")));c.limit=parseBRL($("kLim").value)||0;if(c._new){delete c._new;store.cards.push(c);}save();closeModal();renderSettings();};
 }
 function editFin(id){
   const f=id?store.financings.find(x=>x.id==id):{id:uid(),description:"",parcelaAmount:0,count:12,firstDueTs:nextDue(10),categoryId:3,_new:true};
@@ -763,14 +783,14 @@ function editFin(id){
   const dstr=new Date(f.firstDueTs).toISOString().slice(0,10);
   $("sheet").innerHTML=`<div class="kick" style="color:var(--gold);">${id?'Editar':'Novo'} financiamento/boleto</div>
     <div class="lbl">Descrição</div><input id="fDesc" class="field" value="${(f.description||'').replace(/"/g,'&quot;')}" placeholder="ex: Carro (financiamento)">
-    <div class="lbl">Valor da parcela</div><input id="fVal" class="field" inputmode="decimal" value="${f.parcelaAmount||''}" placeholder="5782,02">
+    <div class="lbl">Valor da parcela</div><input id="fVal" class="field" inputmode="decimal" value="${f.parcelaAmount?amtToInput(f.parcelaAmount):''}" placeholder="5782,02">
     <div class="lbl">Nº de parcelas (total)</div><input id="fCount" class="field" inputmode="numeric" value="${f.count}">
     <div class="lbl">Vencimento da 1ª parcela</div><input id="fDate" class="field" type="date" value="${dstr}">
     <div class="lbl">Categoria</div><select id="fCat" class="field">${catOpts}</select>
     <div style="display:flex;gap:10px;margin-top:16px;"><button id="fCancel" class="btn btn-ghost" style="flex:1;padding:13px;">Cancelar</button><button id="fSave" class="btn btn-gold" style="flex:2;padding:13px;">Salvar</button></div>`;
   openModal();
   $("fCancel").onclick=closeModal;
-  $("fSave").onclick=()=>{f.description=$("fDesc").value.trim()||"Financiamento";f.parcelaAmount=parseFloat(String($("fVal").value).replace(/\./g,"").replace(",","."))||0;f.count=Math.max(1,parseInt($("fCount").value||"1"));const dv=$("fDate").value;f.firstDueTs=dv?new Date(dv+"T12:00").getTime():f.firstDueTs;f.categoryId=+$("fCat").value;if(f._new){delete f._new;store.financings.push(f);}save();closeModal();renderSettings();};
+  $("fSave").onclick=()=>{f.description=$("fDesc").value.trim()||"Financiamento";f.parcelaAmount=parseBRL($("fVal").value)||0;f.count=Math.max(1,parseInt($("fCount").value||"1"));const dv=$("fDate").value;f.firstDueTs=dv?new Date(dv+"T12:00").getTime():f.firstDueTs;f.categoryId=+$("fCat").value;if(f._new){delete f._new;store.financings.push(f);}save();closeModal();renderSettings();};
 }
 function addCatSheet(){
   const gOpts=Object.keys(GROUP).map(g=>`<option value="${g}">${GROUP[g].emoji} ${GROUP[g].label}</option>`).join("");
