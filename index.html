@@ -156,6 +156,23 @@ svg text{font-family:'Hanken Grotesk',sans-serif;}
   <div id="finList"></div>
 </div>
 
+<!-- ================= RESUMO ================= -->
+<div id="screen-sum" class="app-screen scroll hide">
+  <div class="kick">Entradas, saídas e patrimônio</div>
+  <h1 class="h1">Resumo</h1>
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:14px 0;">
+    <button id="sumPrev" class="btn btn-ghost" style="width:42px;height:42px;font-size:20px;">‹</button>
+    <div id="sumLabel" class="serif" style="flex:1;text-align:center;font-size:17px;font-weight:500;text-transform:capitalize;cursor:pointer;"></div>
+    <button id="sumNext" class="btn btn-ghost" style="width:42px;height:42px;font-size:20px;">›</button>
+  </div>
+  <div id="sumBody"></div>
+  <div class="kick" style="margin:22px 0 10px;">Receitas do mês <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400;">· ✏️ para editar</span></div>
+  <button id="addIncome" class="btn btn-gold" style="width:100%;padding:13px;margin-bottom:12px;">+ Registrar receita</button>
+  <div id="incomeList"></div>
+  <div class="kick" style="margin:22px 0 10px;">Contas de investimento</div>
+  <div id="investList"></div>
+</div>
+
 <!-- ================= AJUSTES ================= -->
 <div id="screen-set" class="app-screen scroll hide">
   <div class="kick">Configurações</div>
@@ -167,6 +184,10 @@ svg text{font-family:'Hanken Grotesk',sans-serif;}
   <div class="kick" style="margin:18px 0 10px;">Cartões de crédito</div>
   <div id="setCards"></div>
   <button id="addCard" class="btn btn-ghost" style="width:100%;padding:12px;margin-top:10px;">+ Adicionar cartão</button>
+
+  <div class="kick" style="margin:22px 0 10px;">Contas de investimento</div>
+  <div id="setInvest"></div>
+  <button id="addInvest" class="btn btn-ghost" style="width:100%;padding:12px;margin-top:10px;">+ Adicionar conta de investimento</button>
 
   <div class="kick" style="margin:22px 0 10px;">Financiamentos e boletos</div>
   <div id="setFin"></div>
@@ -182,7 +203,7 @@ svg text{font-family:'Hanken Grotesk',sans-serif;}
     <button id="btnBackup" class="btn btn-ghost" style="width:100%;padding:12px;margin-bottom:10px;">🛟 Baixar backup completo</button>
     <button id="btnRestore" class="btn btn-ghost" style="width:100%;padding:12px;">↩ Restaurar backup</button>
     <input id="fileRestore" type="file" accept=".json,application/json" style="display:none;">
-    <div class="muted" style="font-size:12px;margin-top:12px;line-height:1.5;">Os dados ficam neste aparelho. A sincronização entre os dois celulares vem na Fase 2 (Firebase). Faça backup de vez em quando.</div>
+    <div class="muted" style="font-size:12px;margin-top:12px;line-height:1.5;">Os dados ficam neste aparelho e sincronizam entre os celulares (se logados). Faça backup de vez em quando.</div>
   </div>
 </div>
 
@@ -201,6 +222,7 @@ svg text{font-family:'Hanken Grotesk',sans-serif;}
   <button id="tabReg" class="tabbtn on"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>Registrar</button>
   <button id="tabViz" class="tabbtn"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12A9 9 0 1 1 12 3v9z"/></svg>Análise</button>
   <button id="tabDebt" class="tabbtn"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>Dívidas</button>
+  <button id="tabSum" class="tabbtn"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>Resumo</button>
   <button id="tabSet" class="tabbtn"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>Ajustes</button>
 </nav>
 
@@ -272,6 +294,14 @@ function defaultFinancings(){return [
   {id:"f1",description:"Carro (financiamento 18x)",parcelaAmount:5782.02,count:18,
    firstDueTs:new Date(2026,8,10).getTime(),categoryId:3},
 ];}
+function defaultInvestments(){return [
+  {id:"i1",name:"Sicredi",balance:250000,lastUpdate:null,history:[]},
+  {id:"i2",name:"BTG André",balance:100000,lastUpdate:null,history:[]},
+  {id:"i3",name:"Nubank Empresa",balance:0,lastUpdate:null,history:[]},
+  {id:"i4",name:"Mercado Pago André",balance:0,lastUpdate:null,history:[]},
+  {id:"i5",name:"Mercado Pago Adriana",balance:90,lastUpdate:null,history:[]},
+  {id:"i6",name:"BTG Adriana",balance:50,lastUpdate:null,history:[]},
+];}
 
 /* ---- carregar / migrar ---- */
 let store;
@@ -279,14 +309,15 @@ function loadStore(){
   let raw=null; try{ raw=JSON.parse(localStorage.getItem(KEY)||"null"); }catch(e){}
   if(Array.isArray(raw)){ // formato antigo (só lançamentos)
     const exp=raw.map(e=>({...e,payMethod:e.payMethod||"nao_informado",parcelas:e.parcelas||1,cardId:e.cardId||null,firstDueTs:e.firstDueTs||e.ts}));
-    return {version:2,categories:defaultCategories(),cards:defaultCards(),financings:defaultFinancings(),expenses:exp,migrated:true};
+    return {version:2,categories:defaultCategories(),cards:defaultCards(),financings:defaultFinancings(),expenses:exp,incomes:[],investments:defaultInvestments(),migrated:true};
   }
   if(raw&&raw.version>=2){
     raw.categories=raw.categories&&raw.categories.length?raw.categories:defaultCategories();
     raw.cards=raw.cards||defaultCards(); raw.financings=raw.financings||[]; raw.expenses=raw.expenses||[];
+    raw.incomes=raw.incomes||[]; raw.investments=raw.investments||defaultInvestments();
     return raw;
   }
-  return {version:2,categories:defaultCategories(),cards:defaultCards(),financings:defaultFinancings(),expenses:[]};
+  return {version:2,categories:defaultCategories(),cards:defaultCards(),financings:defaultFinancings(),expenses:[],incomes:[],investments:defaultInvestments()};
 }
 let _cfgTimer=null;
 function save(){ try{ localStorage.setItem(KEY,JSON.stringify(store)); }catch(e){} if(cloud.on){ clearTimeout(_cfgTimer); _cfgTimer=setTimeout(cloudCfg,800); } }
@@ -304,11 +335,13 @@ if(!store.cashMigrated){
 save();
 
 /* ---- sincronização ---- */
-function rerender(){ try{ renderRecent(); const vis=id=>$(id)&&!$(id).classList.contains("hide"); if(vis("screen-viz"))renderViz(); if(vis("screen-debt"))renderDebt(); if(vis("screen-set"))renderSettings(); }catch(e){} }
+function rerender(){ try{ renderRecent(); const vis=id=>$(id)&&!$(id).classList.contains("hide"); if(vis("screen-viz"))renderViz(); if(vis("screen-debt"))renderDebt(); if(vis("screen-sum"))renderResumo(); if(vis("screen-set"))renderSettings(); }catch(e){} }
 function setSyncStatus(s){ cloud.status=s; const el=$("syncStatus"); if(el)el.textContent=s; }
 function cloudPut(e){ if(cloud.on&&cloud.base){ try{ cloud.base.collection("expenses").doc(String(e.id)).set(clean(e)); }catch(x){} } }
 function cloudDel(id){ if(cloud.on&&cloud.base){ try{ cloud.base.collection("expenses").doc(String(id)).delete(); }catch(x){} } }
-function cloudCfg(){ if(cloud.on&&cloud.base){ try{ cloud.base.collection("meta").doc("config").set(clean({categories:store.categories,cards:store.cards,financings:store.financings})); }catch(x){} } }
+function cloudPutIncome(i){ if(cloud.on&&cloud.base){ try{ cloud.base.collection("incomes").doc(String(i.id)).set(clean(i)); }catch(x){} } }
+function cloudDelIncome(id){ if(cloud.on&&cloud.base){ try{ cloud.base.collection("incomes").doc(String(id)).delete(); }catch(x){} } }
+function cloudCfg(){ if(cloud.on&&cloud.base){ try{ cloud.base.collection("meta").doc("config").set(clean({categories:store.categories,cards:store.cards,financings:store.financings,investments:store.investments})); }catch(x){} } }
 
 async function startSync(u){
   try{
@@ -323,15 +356,25 @@ async function startSync(u){
       missing.slice(i,i+400).forEach(e=>batch.set(cloud.base.collection("expenses").doc(String(e.id)),clean(e)));
       await batch.commit();
     }
-    // 2) config: adota a da nuvem unindo com a local (não perde cartões/categorias locais)
+    // 1b) receitas locais que faltam na nuvem
+    const isnap=await cloud.base.collection("incomes").get();
+    const incIds=new Set(); isnap.forEach(d=>incIds.add(d.id));
+    const missInc=(store.incomes||[]).filter(i=>!incIds.has(String(i.id)));
+    for(let i=0;i<missInc.length;i+=400){
+      const batch=cloud.db.batch();
+      missInc.slice(i,i+400).forEach(x=>batch.set(cloud.base.collection("incomes").doc(String(x.id)),clean(x)));
+      await batch.commit();
+    }
+    // 2) config: adota a da nuvem unindo com a local (não perde cartões/categorias/contas locais)
     const cfgRef=cloud.base.collection("meta").doc("config");
     const cfg=await cfgRef.get();
     if(cfg.exists){ const c=cfg.data();
       store.categories=unionById(c.categories,store.categories);
       store.cards=unionById(c.cards,store.cards);
       store.financings=unionById(c.financings,store.financings);
+      if(c.investments)store.investments=unionById(c.investments,store.investments);
     }
-    await cfgRef.set(clean({categories:store.categories,cards:store.cards,financings:store.financings}));
+    await cfgRef.set(clean({categories:store.categories,cards:store.cards,financings:store.financings,investments:store.investments}));
     try{ localStorage.setItem(KEY,JSON.stringify(store)); }catch(e){}
     // 3) escuta em tempo real
     cloud.on=true;
@@ -342,8 +385,15 @@ async function startSync(u){
       });
       store.expenses.sort((a,b)=>b.ts-a.ts); try{localStorage.setItem(KEY,JSON.stringify(store));}catch(e){} rerender();
     },err=>setSyncStatus("Erro: "+(err.code||"conexão"))));
+    cloud.unsub.push(cloud.base.collection("incomes").onSnapshot(s=>{
+      s.docChanges().forEach(ch=>{ const e=ch.doc.data();
+        if(ch.type==="removed"){ store.incomes=(store.incomes||[]).filter(x=>String(x.id)!==ch.doc.id); }
+        else { store.incomes=store.incomes||[]; const i=store.incomes.findIndex(x=>String(x.id)===ch.doc.id); if(i>=0)store.incomes[i]=e; else store.incomes.push(e); }
+      });
+      try{localStorage.setItem(KEY,JSON.stringify(store));}catch(e){} rerender();
+    }));
     cloud.unsub.push(cfgRef.onSnapshot(d=>{ if(d.exists){ const c=d.data();
-      if(c.categories)store.categories=c.categories; if(c.cards)store.cards=c.cards; if(c.financings)store.financings=c.financings;
+      if(c.categories)store.categories=c.categories; if(c.cards)store.cards=c.cards; if(c.financings)store.financings=c.financings; if(c.investments)store.investments=c.investments;
       try{localStorage.setItem(KEY,JSON.stringify(store));}catch(e){} rerender(); }
     }));
     setSyncStatus("Sincronizado ✓"); rerender();
@@ -724,6 +774,136 @@ function renderDebt(){
 }
 
 /* ============================================================
+   RESUMO — receitas, investimentos (por saldo) e patrimônio
+============================================================ */
+const INC_SRC={salario:{label:"Salário",icon:"💼"},servico:{label:"Serviços",icon:"🧾"},rendimento:{label:"Rendimento",icon:"📈"},outro:{label:"Outro",icon:"➕"}};
+let sumOffset=0;
+
+// rendimento = saldo novo − saldo anterior − aporte + resgate
+function calcRendimento(prev,novo,aporte,resgate){ return novo-prev-(aporte||0)+(resgate||0); }
+function incomesForYm(ym){
+  const list=[];
+  (store.incomes||[]).forEach(i=>{ if(ymOf(i.ts)===ym)list.push({...i,kind:"manual"}); });
+  (store.investments||[]).forEach(inv=>(inv.history||[]).forEach(h=>{ if(h.refYm===ym&&h.rendimento)list.push({id:inv.id+"-"+h.refYm,ts:ymTs(ym),amount:h.rendimento,source:"rendimento",description:"Rendimento "+inv.name,kind:"rend",invId:inv.id}); }));
+  return list;
+}
+function investedForYm(ym){let n=0;(store.investments||[]).forEach(inv=>(inv.history||[]).forEach(h=>{if(h.refYm===ym)n+=(h.aporte||0)-(h.resgate||0);}));return n;}
+function rendimentoForYm(ym){let r=0;(store.investments||[]).forEach(inv=>(inv.history||[]).forEach(h=>{if(h.refYm===ym)r+=(h.rendimento||0);}));return r;}
+function patrimonioTotal(){return (store.investments||[]).reduce((s,i)=>s+(i.balance||0),0);}
+function despesasForYm(ym){return cashEvents().filter(x=>x.ym===ym).reduce((s,x)=>s+x.amount,0);}
+
+function renderResumo(){
+  const now=new Date(),start=new Date(now.getFullYear(),now.getMonth()+sumOffset,1),ym=ymOf(start.getTime());
+  $("sumLabel").textContent=start.toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+  const incs=incomesForYm(ym),entradas=incs.reduce((s,i)=>s+i.amount,0);
+  const despesas=despesasForYm(ym),investido=investedForYm(ym),rend=rendimentoForYm(ym);
+  const sobrou=entradas-despesas-investido,guardado=entradas-despesas,patrimonio=patrimonioTotal();
+  const cor=v=>v>=0?"#5C8A4C":"#C2553B";
+  $("sumBody").innerHTML=`
+    <div class="card" style="background:linear-gradient(160deg,#2c2620,#241e18);margin-bottom:14px;">
+      <div class="muted" style="font-size:12px;">Sobrou no mês (entradas − despesas − investimentos)</div>
+      <div class="serif" style="font-size:34px;font-weight:600;color:${cor(sobrou)};">${brl(sobrou)}</div>
+      <div class="muted" style="font-size:12px;">Guardado (entradas − despesas): <b class="serif" style="color:${cor(guardado)}">${brl(guardado)}</b></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:14px;">
+      <div class="card" style="flex:1;text-align:center;"><div class="muted" style="font-size:11px;">Entradas</div><div class="serif" style="font-size:18px;color:#5C8A4C;">${brl(entradas)}</div></div>
+      <div class="card" style="flex:1;text-align:center;"><div class="muted" style="font-size:11px;">Despesas</div><div class="serif" style="font-size:18px;color:#C2553B;">${brl(despesas)}</div></div>
+      <div class="card" style="flex:1;text-align:center;"><div class="muted" style="font-size:11px;">Investido</div><div class="serif" style="font-size:18px;color:#7E9BC4;">${brl(investido)}</div></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div><div class="muted" style="font-size:12px;">Patrimônio investido (hoje)</div><div class="serif" style="font-size:24px;color:var(--gold);">${brl(patrimonio)}</div></div>
+        <div style="text-align:right;"><div class="muted" style="font-size:12px;">Rendimento do mês</div><div class="serif" style="font-size:18px;color:#5C8A4C;">${brl(rend)}</div></div>
+      </div>
+    </div>`;
+  renderIncomeList(incs);
+  renderInvestList();
+}
+function renderIncomeList(incs){
+  const el=$("incomeList");
+  if(!incs.length){el.innerHTML=`<div class="card muted" style="text-align:center;padding:20px;font-size:14px;">Nenhuma receita neste mês.</div>`;return;}
+  el.innerHTML=incs.slice().sort((a,b)=>b.ts-a.ts).map(i=>{const s=INC_SRC[i.source]||INC_SRC.outro,d=new Date(i.ts),auto=i.kind==="rend";
+    return `<div class="row"${auto?"":` data-einc="${i.id}"`}>
+      <span class="dot" style="background:${auto?'#5C8A4C':'#e0a85e'}"></span>
+      <div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:14px;">${i.description||s.label}</div>
+      <div class="muted" style="font-size:12px;">${s.icon} ${s.label}${i.who?" · "+i.who:""}${auto?" · auto":""} · ${d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</div></div>
+      <div class="serif" style="font-size:15px;color:#5C8A4C;">${brl(i.amount)}</div>
+      ${auto?'':`<button class="btn" data-pinc="${i.id}" style="background:transparent;color:var(--mut);padding:6px;">✏️</button><button class="btn" data-dinc="${i.id}" style="background:transparent;color:var(--mut2);padding:6px;">🗑</button>`}
+    </div>`;}).join("");
+  el.querySelectorAll("[data-pinc]").forEach(b=>b.onclick=()=>{const i=store.incomes.find(x=>x.id==b.dataset.pinc);if(i)openIncome(i);});
+  el.querySelectorAll("[data-dinc]").forEach(b=>b.onclick=()=>{cloudDelIncome(b.dataset.dinc);store.incomes=store.incomes.filter(x=>x.id!=b.dataset.dinc);save();renderResumo();});
+}
+function renderInvestList(){
+  const el=$("investList");
+  el.innerHTML=(store.investments||[]).map(inv=>{const last=(inv.history||[]).slice(-1)[0];
+    const pct=last&&last.rendimento&&(last.balance-last.rendimento)?(last.rendimento/(last.balance-last.rendimento)*100):null;
+    return `<div class="row" data-uinv="${inv.id}" style="cursor:pointer;">
+      <div style="flex:1;"><div style="font-weight:600;font-size:14px;">${inv.name}</div>
+      <div class="muted" style="font-size:12px;">${inv.lastUpdate?"últ. "+ymLabel(last?last.refYm:ymNow())+(pct!=null?" · "+pct.toFixed(2)+"%":""):"toque para atualizar o saldo"}</div></div>
+      <div style="text-align:right;"><div class="serif" style="font-size:15px;">${brl(inv.balance)}</div><div class="muted" style="font-size:11px;">atualizar ›</div></div></div>`;}).join("");
+  el.querySelectorAll("[data-uinv]").forEach(r=>r.onclick=()=>openInvestUpdate(r.dataset.uinv));
+}
+
+/* ---- receita (modal) ---- */
+function openIncome(existing){
+  const inc=existing?{...existing}:{id:uid(),ts:Date.now(),amount:"",source:"servico",description:"",who:""};
+  const srcOpts=Object.keys(INC_SRC).filter(k=>k!=="rendimento").map(k=>`<option value="${k}" ${inc.source===k?'selected':''}>${INC_SRC[k].icon} ${INC_SRC[k].label}</option>`).join("");
+  $("sheet").innerHTML=`<div class="kick" style="color:var(--gold);">${existing?'Editar':'Nova'} receita</div>
+    <div style="display:flex;align-items:baseline;gap:8px;margin:10px 0 4px;"><span class="serif muted" style="font-size:20px;">R$</span>
+      <input id="iAmt" class="serif" inputmode="decimal" value="${amtToInput(inc.amount)}" placeholder="0,00" style="background:transparent;border:none;border-bottom:2px solid var(--line);color:var(--ink);font-size:32px;width:150px;font-weight:500;"></div>
+    <div class="lbl">Descrição</div><input id="iDesc" class="field" value="${(inc.description||'').replace(/"/g,'&quot;')}" placeholder="ex: pagamento cliente X">
+    <div class="lbl">Origem</div><select id="iSrc" class="field">${srcOpts}</select>
+    <div class="lbl">Quem recebeu</div><select id="iWho" class="field"><option value="" ${!inc.who?'selected':''}>—</option><option ${inc.who==='André'?'selected':''}>André</option><option ${inc.who==='Adriana'?'selected':''}>Adriana</option><option ${inc.who==='Empresa'?'selected':''}>Empresa</option></select>
+    <div class="lbl">Data e hora do recebimento</div><input id="iDate" class="field" type="datetime-local" value="${tsToLocalInput(inc.ts)}">
+    <div style="display:flex;gap:10px;margin-top:16px;"><button id="iCancel" class="btn btn-ghost" style="flex:1;padding:13px;">Cancelar</button><button id="iSave" class="btn btn-gold" style="flex:2;padding:13px;">✓ Registrar</button></div>`;
+  openModal();
+  $("iCancel").onclick=closeModal;
+  $("iSave").onclick=()=>{const amt=parseBRL($("iAmt").value);if(!amt||amt<=0){showToast("Informe um valor válido");return;}
+    inc.amount=amt;inc.description=$("iDesc").value.trim();inc.source=$("iSrc").value;inc.who=$("iWho").value;if($("iDate").value)inc.ts=new Date($("iDate").value).getTime();
+    const i=store.incomes.findIndex(x=>x.id===inc.id);if(i>=0)store.incomes[i]=inc;else store.incomes.unshift(inc);
+    save();cloudPutIncome(inc);closeModal();renderResumo();showToast("Receita registrada ✓");};
+}
+
+/* ---- atualização de saldo de investimento (modal) ---- */
+function openInvestUpdate(invId){
+  const inv=store.investments.find(x=>x.id===invId);if(!inv)return;
+  const now=new Date();const defRef=new Date(now.getFullYear(),now.getMonth()-1,1); // mês que passou
+  const refStr=defRef.getFullYear()+"-"+String(defRef.getMonth()+1).padStart(2,"0");
+  $("sheet").innerHTML=`<div class="kick" style="color:var(--gold);">Atualizar saldo — ${inv.name}</div>
+    <div class="muted" style="font-size:12px;margin:8px 0;">Saldo anterior: <b class="serif">${brl(inv.balance)}</b></div>
+    <div class="lbl">Saldo atual (hoje)</div><input id="vBal" class="field" inputmode="decimal" value="${amtToInput(inv.balance)}">
+    <div class="lbl">Mês de referência (o que passou)</div><input id="vRef" class="field" type="month" value="${refStr}">
+    <div class="lbl">Aporte no período (você depositou)</div><input id="vApo" class="field" inputmode="decimal" value="0" placeholder="0,00">
+    <div class="lbl">Resgate no período (você sacou)</div><input id="vRes" class="field" inputmode="decimal" value="0" placeholder="0,00">
+    <div id="vHint" class="card" style="margin-top:12px;text-align:center;background:var(--bg2);"></div>
+    <div style="display:flex;gap:10px;margin-top:16px;"><button id="vCancel" class="btn btn-ghost" style="flex:1;padding:13px;">Cancelar</button><button id="vSave" class="btn btn-gold" style="flex:2;padding:13px;">✓ Salvar</button></div>`;
+  openModal();
+  const upd=()=>{const novo=parseBRL($("vBal").value)||0,apo=parseBRL($("vApo").value)||0,res=parseBRL($("vRes").value)||0;
+    const refv=$("vRef").value,refYm=refv?(parseInt(refv.slice(0,4))*12+parseInt(refv.slice(5,7))-1):ymNow()-1;
+    // se já existe histórico para este mês, usa o prevBalance original para recalcular
+    const existing=(inv.history||[]).find(h=>h.refYm===refYm);
+    const prev=existing?existing.prevBalance:inv.balance;
+    const rend=calcRendimento(prev,novo,apo,res);
+    const pct=prev?(rend/prev*100):0;
+    $("vHint").innerHTML=`Rendimento calculado: <b class="serif" style="color:${rend>=0?'#5C8A4C':'#C2553B'};font-size:18px;">${brl(rend)}</b> <span class="muted">(${pct.toFixed(2)}%)</span>`;
+    return {novo,apo,res,refYm,prev,rend};
+  };
+  ["vBal","vApo","vRes","vRef"].forEach(id=>$(id).oninput=upd);
+  $("vRef").onchange=upd; upd();
+  $("vCancel").onclick=closeModal;
+  $("vSave").onclick=()=>{const {novo,apo,res,refYm,prev,rend}=upd();
+    inv.history=(inv.history||[]).filter(h=>h.refYm!==refYm); // 1 registro por mês (corrige se reeditar)
+    inv.history.push({ts:Date.now(),refYm,prevBalance:prev,balance:novo,aporte:apo,resgate:res,rendimento:rend});
+    inv.history.sort((a,b)=>a.refYm-b.refYm);
+    inv.balance=novo;inv.lastUpdate=Date.now();
+    save();cloudCfg();closeModal();renderResumo();if(!$("screen-set").classList.contains("hide"))renderSettings();showToast("Saldo atualizado ✓");};
+}
+$("sumPrev").onclick=()=>{sumOffset--;renderResumo();};
+$("sumNext").onclick=()=>{sumOffset++;renderResumo();};
+$("sumLabel").onclick=()=>{if(sumOffset!==0){sumOffset=0;renderResumo();}};
+$("addIncome").onclick=()=>openIncome(null);
+
+/* ============================================================
    AJUSTES — cartões, financiamentos, categorias, backup
 ============================================================ */
 function renderSync(){
@@ -757,6 +937,9 @@ function renderSettings(){
   $("setCards").innerHTML=store.cards.map(c=>`<div class="row"><div style="flex:1;"><div style="font-weight:600;font-size:14px;">${c.name}</div><div class="muted" style="font-size:12px;">fecha dia ${c.closingDay} · vence dia ${c.dueDay}${c.limit?" · limite "+brl(c.limit):""}</div></div><button class="btn btn-ghost" data-ecard="${c.id}" style="padding:7px 11px;font-size:12px;">editar</button><button class="btn" data-dcard="${c.id}" style="background:transparent;color:var(--mut2);padding:6px;">🗑</button></div>`).join("");
   $("setCards").querySelectorAll("[data-ecard]").forEach(b=>b.onclick=()=>editCard(b.dataset.ecard));
   $("setCards").querySelectorAll("[data-dcard]").forEach(b=>b.onclick=()=>{if(confirm("Remover este cartão?")){store.cards=store.cards.filter(c=>c.id!=b.dataset.dcard);save();renderSettings();}});
+  $("setInvest").innerHTML=(store.investments||[]).length?store.investments.map(v=>`<div class="row"><div style="flex:1;"><div style="font-weight:600;font-size:14px;">${v.name}</div><div class="muted" style="font-size:12px;">saldo ${brl(v.balance)}</div></div><button class="btn btn-ghost" data-einv="${v.id}" style="padding:7px 11px;font-size:12px;">editar</button><button class="btn" data-dinv="${v.id}" style="background:transparent;color:var(--mut2);padding:6px;">🗑</button></div>`).join(""):`<div class="muted" style="font-size:13px;padding:6px 2px;">Nenhuma conta.</div>`;
+  $("setInvest").querySelectorAll("[data-einv]").forEach(b=>b.onclick=()=>editInvest(b.dataset.einv));
+  $("setInvest").querySelectorAll("[data-dinv]").forEach(b=>b.onclick=()=>{if(confirm("Remover esta conta de investimento? O histórico dela será perdido.")){store.investments=store.investments.filter(v=>v.id!=b.dataset.dinv);save();cloudCfg();renderSettings();}});
   $("setFin").innerHTML=(store.financings||[]).length?store.financings.map(f=>`<div class="row"><div style="flex:1;"><div style="font-weight:600;font-size:14px;">${f.description}</div><div class="muted" style="font-size:12px;">${f.count}x de ${brl(f.parcelaAmount)} · 1ª ${new Date(f.firstDueTs).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"2-digit"})}</div></div><button class="btn btn-ghost" data-efin="${f.id}" style="padding:7px 11px;font-size:12px;">editar</button><button class="btn" data-dfin="${f.id}" style="background:transparent;color:var(--mut2);padding:6px;">🗑</button></div>`).join(""):`<div class="muted" style="font-size:13px;padding:6px 2px;">Nenhum cadastrado.</div>`;
   $("setFin").querySelectorAll("[data-efin]").forEach(b=>b.onclick=()=>editFin(b.dataset.efin));
   $("setFin").querySelectorAll("[data-dfin]").forEach(b=>b.onclick=()=>{if(confirm("Remover?")){store.financings=store.financings.filter(f=>f.id!=b.dataset.dfin);save();renderSettings();}});
@@ -808,6 +991,18 @@ function addCatSheet(){
 $("addCard").onclick=()=>editCard(null);
 $("addFin").onclick=()=>editFin(null);
 $("addCat").onclick=addCatSheet;
+$("addInvest").onclick=()=>editInvest(null);
+function editInvest(id){
+  const v=id?store.investments.find(x=>x.id==id):{id:uid(),name:"",balance:0,lastUpdate:null,history:[],_new:true};
+  $("sheet").innerHTML=`<div class="kick" style="color:var(--gold);">${id?'Editar':'Nova'} conta de investimento</div>
+    <div class="lbl">Nome</div><input id="vName" class="field" value="${(v.name||'').replace(/"/g,'&quot;')}" placeholder="ex: Sicredi">
+    <div class="lbl">Saldo atual</div><input id="vBal2" class="field" inputmode="decimal" value="${v.balance?amtToInput(v.balance):''}" placeholder="0,00">
+    <div class="muted" style="font-size:12px;margin-top:8px;">O rendimento é calculado quando você atualiza o saldo pela aba Resumo.</div>
+    <div style="display:flex;gap:10px;margin-top:16px;"><button id="vCancel2" class="btn btn-ghost" style="flex:1;padding:13px;">Cancelar</button><button id="vSave2" class="btn btn-gold" style="flex:2;padding:13px;">Salvar</button></div>`;
+  openModal();
+  $("vCancel2").onclick=closeModal;
+  $("vSave2").onclick=()=>{v.name=$("vName").value.trim()||"Conta";v.balance=parseBRL($("vBal2").value)||0;if(v._new){delete v._new;store.investments.push(v);}save();cloudCfg();closeModal();renderSettings();};
+}
 
 /* ============================================================
    Export / backup
@@ -816,7 +1011,7 @@ function baixar(nome,cont,tipo){const b=new Blob([cont],{type:tipo}),u=URL.creat
 $("btnCSV").onclick=()=>{if(!store.expenses.length){showToast("Sem dados");return;}const L=[["Data","Hora","Categoria","Grupo","Forma","Cartão","Parcelas","Descrição","Valor"]];store.expenses.slice().sort((a,b)=>a.ts-b.ts).forEach(e=>{const c=catById(e.categoryId),d=new Date(e.ts);L.push([d.toLocaleDateString("pt-BR"),d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}),c.name,GROUP[c.group].label,(PAY[e.payMethod]||PAY.nao_informado).label,e.cardId?(cardById(e.cardId)||{name:""}).name:"",e.parcelas||1,(e.description||"").replace(/[;\n]/g," "),e.amount.toFixed(2).replace(".",",")]);});baixar(`gastos-${new Date().toISOString().slice(0,10)}.csv`,"\uFEFF"+L.map(r=>r.join(";")).join("\r\n"),"text/csv;charset=utf-8");showToast("CSV baixado ✓");};
 $("btnBackup").onclick=()=>{baixar(`backup-financas-${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(store),"application/json");showToast("Backup baixado ✓");};
 $("btnRestore").onclick=()=>$("fileRestore").click();
-$("fileRestore").onchange=ev=>{const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(Array.isArray(d)){const ids=new Set(store.expenses.map(e=>e.id));let add=0;d.forEach(e=>{if(e&&e.id&&!ids.has(e.id)){store.expenses.push({...e,payMethod:e.payMethod||"nao_informado",parcelas:e.parcelas||1,cardId:e.cardId||null,firstDueTs:e.firstDueTs||e.ts});add++;}});store.expenses.sort((a,b)=>b.ts-a.ts);save();showToast(add+" restaurado(s) ✓");}else if(d.version>=2){const ids=new Set(store.expenses.map(e=>e.id));let add=0;(d.expenses||[]).forEach(e=>{if(!ids.has(e.id)){store.expenses.push(e);add++;}});if(d.cards)d.cards.forEach(c=>{if(!cardById(c.id))store.cards.push(c);});if(d.financings)d.financings.forEach(fn=>{if(!store.financings.find(x=>x.id==fn.id))store.financings.push(fn);});store.expenses.sort((a,b)=>b.ts-a.ts);save();showToast(add+" lançamento(s) restaurado(s) ✓");}renderRecent();renderSettings();if(cloud.on){store.expenses.forEach(e=>cloudPut(e));cloudCfg();}}catch(err){showToast("Backup inválido");}};r.readAsText(f);ev.target.value="";};
+$("fileRestore").onchange=ev=>{const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(Array.isArray(d)){const ids=new Set(store.expenses.map(e=>e.id));let add=0;d.forEach(e=>{if(e&&e.id&&!ids.has(e.id)){store.expenses.push({...e,payMethod:e.payMethod||"nao_informado",parcelas:e.parcelas||1,cardId:e.cardId||null,firstDueTs:e.firstDueTs||e.ts});add++;}});store.expenses.sort((a,b)=>b.ts-a.ts);save();showToast(add+" restaurado(s) ✓");}else if(d.version>=2){const ids=new Set(store.expenses.map(e=>e.id));let add=0;(d.expenses||[]).forEach(e=>{if(!ids.has(e.id)){store.expenses.push(e);add++;}});if(d.cards)d.cards.forEach(c=>{if(!cardById(c.id))store.cards.push(c);});if(d.financings)d.financings.forEach(fn=>{if(!store.financings.find(x=>x.id==fn.id))store.financings.push(fn);});if(d.incomes){store.incomes=store.incomes||[];const iid=new Set(store.incomes.map(x=>x.id));d.incomes.forEach(x=>{if(!iid.has(x.id))store.incomes.push(x);});}if(d.investments){store.investments=store.investments||[];d.investments.forEach(v=>{if(!store.investments.find(x=>x.id==v.id))store.investments.push(v);});}store.expenses.sort((a,b)=>b.ts-a.ts);save();showToast(add+" lançamento(s) restaurado(s) ✓");}renderRecent();renderSettings();if(cloud.on){store.expenses.forEach(e=>cloudPut(e));(store.incomes||[]).forEach(i=>cloudPutIncome(i));cloudCfg();}}catch(err){showToast("Backup inválido");}};r.readAsText(f);ev.target.value="";};
 
 /* ============================================================
    RELATÓRIO PDF
@@ -860,13 +1055,13 @@ $("repPrint").onclick=()=>window.print();
 /* ============================================================
    Navegação de abas
 ============================================================ */
-const screens={reg:"screen-reg",viz:"screen-viz",debt:"screen-debt",set:"screen-set"};
-const tabs={reg:"tabReg",viz:"tabViz",debt:"tabDebt",set:"tabSet"};
-function goto(tab){Object.keys(screens).forEach(k=>{$(screens[k]).classList.toggle("hide",k!==tab);$(tabs[k]).classList.toggle("on",k===tab);});if(tab==="viz")renderViz();if(tab==="debt")renderDebt();if(tab==="set")renderSettings();}
+const screens={reg:"screen-reg",viz:"screen-viz",debt:"screen-debt",sum:"screen-sum",set:"screen-set"};
+const tabs={reg:"tabReg",viz:"tabViz",debt:"tabDebt",sum:"tabSum",set:"tabSet"};
+function goto(tab){Object.keys(screens).forEach(k=>{$(screens[k]).classList.toggle("hide",k!==tab);$(tabs[k]).classList.toggle("on",k===tab);});if(tab==="viz")renderViz();if(tab==="debt")renderDebt();if(tab==="sum")renderResumo();if(tab==="set")renderSettings();}
 function gotoMonth(ym){ period="month"; offset=ym-ymNow(); goto("viz"); window.scrollTo(0,0); }
 $("rangeLabel").onclick=()=>{ if(offset!==0){ offset=0; renderViz(); } };
 $("rangeLabel").style.cursor="pointer";
-$("tabReg").onclick=()=>goto("reg");$("tabViz").onclick=()=>goto("viz");$("tabDebt").onclick=()=>goto("debt");$("tabSet").onclick=()=>goto("set");
+$("tabReg").onclick=()=>goto("reg");$("tabViz").onclick=()=>goto("viz");$("tabDebt").onclick=()=>goto("debt");$("tabSum").onclick=()=>goto("sum");$("tabSet").onclick=()=>goto("set");
 
 /* init */
 renderRecent();
