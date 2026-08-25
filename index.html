@@ -81,6 +81,33 @@ svg text{font-family:'Hanken Grotesk',sans-serif;}
   #report{position:static;display:block!important;overflow:visible;background:#fff;}
   .rep-bar,.no-print{display:none!important;}.rep-wrap{max-width:none;padding:0;}
   .rep-card{break-inside:avoid;}tr{break-inside:avoid;}@page{margin:14mm;}}
+
+/* ---------- LAYOUT PARA COMPUTADOR (tela larga) ---------- */
+@media (min-width:900px){
+  body{max-width:none;}
+  body::before{max-width:none;background:radial-gradient(60% 40% at 30% -5%,rgba(224,168,94,.08),transparent 60%);}
+  /* barra inferior vira barra lateral */
+  .tabbar{top:0;bottom:auto;left:0;right:auto;width:220px;height:100vh;max-width:none;
+    flex-direction:column;justify-content:flex-start;gap:4px;border-top:none;border-right:1px solid var(--line);padding:26px 12px;}
+  .tabbtn{flex:none;width:100%;flex-direction:row;justify-content:flex-start;gap:13px;
+    padding:13px 18px;font-size:14px;border-radius:12px;}
+  .tabbtn svg{width:21px;height:21px;}
+  .tabbtn.on{background:var(--card);}
+  /* conteúdo ao lado da barra, largura confortável */
+  .app-screen.scroll{margin-left:220px;max-width:900px;padding:34px 46px 70px;}
+  .h1{font-size:30px;}
+  /* modais centralizados (em vez de subir de baixo) */
+  .modal{align-items:center;}
+  .sheet{max-width:480px;border-radius:20px;animation:pop .25s ease both;}
+  .toast{left:220px;right:0;bottom:24px;}
+  /* aproveita a largura: grades de cartões lado a lado onde faz sentido */
+  #vizBody,#sumBody{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;}
+  #vizBody>.card:first-child,#sumBody>.card:first-child{grid-column:1 / -1;}
+  #budgetChart .card{padding:20px;}
+}
+@media (min-width:1200px){
+  .app-screen.scroll{max-width:1040px;}
+}
 </style>
 </head>
 <body>
@@ -605,6 +632,7 @@ function renderEntrySheet(){
   $("dCard").onchange=e=>{draft.cardId=e.target.value||null;draft._dueManual=false;const c=cardById(draft.cardId);draft.firstDueTs=c?firstDueForCard(draft.ts,c):null;if($("dDue"))$("dDue").value=draft.firstDueTs?new Date(draft.firstDueTs).toISOString().slice(0,10):'';updDueHint();};
   $("dParc").oninput=e=>{draft.parcelas=Math.max(1,parseInt(e.target.value||"1"));updDueHint();};
   $("dAmt").oninput=e=>{draft.amount=e.target.value;updDueHint();};
+  $("dAmt").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();saveEntry();}});
   $("dDesc").oninput=e=>draft.description=e.target.value;
   if($("dDate"))$("dDate").onchange=e=>{if(e.target.value){draft.ts=new Date(e.target.value).getTime();if(!draft._dueManual){const c=cardById(draft.cardId);if(c){draft.firstDueTs=firstDueForCard(draft.ts,c);if($("dDue"))$("dDue").value=new Date(draft.firstDueTs).toISOString().slice(0,10);}}updDueHint();}};
   if($("dDue"))$("dDue").onchange=e=>{if(e.target.value){draft.firstDueTs=new Date(e.target.value+"T12:00").getTime();draft._dueManual=true;updDueHint();}};
@@ -858,6 +886,7 @@ function openIncome(existing){
     <div style="display:flex;gap:10px;margin-top:16px;"><button id="iCancel" class="btn btn-ghost" style="flex:1;padding:13px;">Cancelar</button><button id="iSave" class="btn btn-gold" style="flex:2;padding:13px;">✓ Registrar</button></div>`;
   openModal();
   $("iCancel").onclick=closeModal;
+  $("iAmt").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("iSave").click();}});
   $("iSave").onclick=()=>{const amt=parseBRL($("iAmt").value);if(!amt||amt<=0){showToast("Informe um valor válido");return;}
     inc.amount=amt;inc.description=$("iDesc").value.trim();inc.source=$("iSrc").value;inc.who=$("iWho").value;if($("iDate").value)inc.ts=new Date($("iDate").value).getTime();
     const i=store.incomes.findIndex(x=>x.id===inc.id);if(i>=0)store.incomes[i]=inc;else store.incomes.unshift(inc);
