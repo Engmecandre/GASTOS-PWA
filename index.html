@@ -239,6 +239,24 @@ svg text{font-family:'Hanken Grotesk',sans-serif;}
 <!-- modal genérico -->
 <div id="modal" class="modal"><div class="sheet" id="sheet"></div></div>
 
+<!-- fatura do cartão (conferência) -->
+<div id="billEd" style="position:fixed;inset:0;z-index:90;background:var(--bg);display:none;overflow:auto;">
+  <div style="max-width:900px;margin:0 auto;padding:22px 18px 90px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+      <div><div class="kick">Conferência de fatura</div><div id="beName" class="h1"></div></div>
+      <button id="beClose" class="btn btn-ghost" style="padding:10px 16px;">✕ Fechar</button>
+    </div>
+    <div id="beTop" style="margin:14px 0;"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;">
+      <button id="bePrev" class="btn btn-ghost" style="width:42px;height:42px;font-size:20px;">‹</button>
+      <div id="beFatLabel" class="serif" style="flex:1;text-align:center;font-size:16px;font-weight:500;"></div>
+      <button id="beNext" class="btn btn-ghost" style="width:42px;height:42px;font-size:20px;">›</button>
+    </div>
+    <button id="beAdd" class="btn btn-gold" style="width:100%;padding:13px;margin-bottom:12px;">+ Lançar nesta fatura</button>
+    <div id="beList"></div>
+  </div>
+</div>
+
 <!-- editor de histórico de saldos de investimento -->
 <div id="investEd" style="position:fixed;inset:0;z-index:90;background:var(--bg);display:none;overflow:auto;">
   <div style="max-width:900px;margin:0 auto;padding:22px 18px 90px;">
@@ -680,6 +698,7 @@ function saveEntry(){
   store.expenses.sort((a,b)=>b.ts-a.ts); save(); cloudPut(draft);
   closeModal();renderRecent();
   if(!$("screen-viz").classList.contains("hide"))renderViz();
+  if($("billEd").style.display==="block")renderBill();
   showToast("Registrado ✓");
 }
 
@@ -816,11 +835,71 @@ function renderDebt(){
       <div class="serif" style="font-size:15px;">${brl(v)}</div><span class="muted" style="font-size:16px;">›</span></div>`;}).join("");
   $("timeline").querySelectorAll("[data-mes]").forEach(r=>r.onclick=()=>gotoMonth(+r.dataset.mes));
   // por cartão
-  $("cardsDebt").innerHTML=store.cards.map(c=>{const b=s.byCard[c.id];const open=b?b.open:0;return `<div class="row"><div style="flex:1;"><div style="font-weight:600;font-size:14px;">${c.name}</div><div class="muted" style="font-size:12px;">vence dia ${c.dueDay}${b&&b.nextYM!=null?" · próxima "+ymLabel(b.nextYM)+" "+brl(b.nextVal):" · sem parcelas"}</div></div><div style="text-align:right;"><div class="serif" style="font-size:15px;">${brl(open)}</div><div class="muted" style="font-size:11px;">em aberto</div></div></div>`;}).join("");
+  $("cardsDebt").innerHTML=store.cards.map(c=>{const b=s.byCard[c.id];const open=b?b.open:0;return `<div class="row" data-cardf="${c.id}" style="cursor:pointer;"><div style="flex:1;"><div style="font-weight:600;font-size:14px;">${c.name}</div><div class="muted" style="font-size:12px;">vence dia ${c.dueDay}${b&&b.nextYM!=null?" · próxima fatura "+ymLabel(b.nextYM)+": "+brl(b.nextVal):" · sem parcelas"}</div></div><div style="text-align:right;"><div class="serif" style="font-size:15px;">${brl(open)}</div><div class="muted" style="font-size:11px;">comprometido ›</div></div></div>`;}).join("");
+  $("cardsDebt").querySelectorAll("[data-cardf]").forEach(r=>r.onclick=()=>openCardBill(r.dataset.cardf));
   // financiamentos
   const fkeys=Object.keys(s.byFin);
   $("finList").innerHTML=fkeys.length?fkeys.map(k=>{const b=s.byFin[k],f=b.fin;return `<div class="row"><div style="flex:1;"><div style="font-weight:600;font-size:14px;">${f.description}</div><div class="muted" style="font-size:12px;">${brl(f.parcelaAmount)}/mês · ${b.remaining} de ${f.count} restantes${b.nextYM!=null?" · próx. "+ymLabel(b.nextYM):""}</div></div><div style="text-align:right;"><div class="serif" style="font-size:15px;">${brl(b.open)}</div><div class="muted" style="font-size:11px;">restante</div></div></div>`;}).join(""):`<div class="muted" style="font-size:13px;padding:8px 2px;">Nenhum financiamento cadastrado.</div>`;
 }
+
+/* ============================================================
+   FATURA DO CARTÃO (conferência item a item)
+============================================================ */
+let beCard=null, beYm=null;
+// todas as parcelas de um cartão, agrupadas por mês de vencimento (fatura)
+function billItems(cardId){
+  const items=[];
+  store.expenses.forEach(e=>{
+    if((e.payMethod==="credito"||e.payMethod==="boleto")&&e.cardId===cardId&&(e.parcelas||1)>=1){
+      const p=e.parcelas||1,base=e.firstDueTs||e.ts,val=e.amount/p;
+      for(let k=0;k<p;k++){const dts=addMonths(base,k);items.push({ym:ymOf(dts),effTs:dts,value:val,idx:k+1,of:p,srcId:e.id,description:e.description,categoryId:e.categoryId,purchaseTs:e.ts});}
+    }
+  });
+  return items;
+}
+function openCardBill(cardId){
+  beCard=store.cards.find(c=>c.id===cardId);if(!beCard)return;
+  const items=billItems(cardId);
+  // fatura inicial = próxima com vencimento >= hoje, senão a última
+  const yms=[...new Set(items.map(i=>i.ym))].sort((a,b)=>a-b);
+  const future=yms.filter(y=>y>=ymNow());
+  beYm = future.length?future[0]:(yms.length?yms[yms.length-1]:ymNow());
+  $("beName").textContent=beCard.name;
+  $("billEd").style.display="block";window.scrollTo(0,0);
+  renderBill();
+}
+function renderBill(){
+  const items=billItems(beCard.id);
+  const comprometido=items.filter(i=>i.ym>=ymNow()).reduce((s,i)=>s+i.value,0);
+  const yms=[...new Set(items.map(i=>i.ym))].sort((a,b)=>a-b);
+  const nextYm=yms.filter(y=>y>=ymNow())[0];
+  const proxima=nextYm!=null?items.filter(i=>i.ym===nextYm).reduce((s,i)=>s+i.value,0):0;
+  $("beTop").innerHTML=`<div class="card" style="background:linear-gradient(160deg,#2c2620,#241e18);">
+    <div class="muted" style="font-size:12px;">Total comprometido (falta pagar neste cartão)</div>
+    <div class="serif" style="font-size:32px;font-weight:600;color:var(--gold);">${brl(comprometido)}</div>
+    <div class="muted" style="font-size:13px;">${nextYm!=null?"Próxima fatura ("+ymLabel(nextYm)+"): "+brl(proxima):"sem faturas futuras"} · vence dia ${beCard.dueDay}</div></div>`;
+  // fatura do mês selecionado
+  const fat=items.filter(i=>i.ym===beYm).sort((a,b)=>a.effTs-b.effTs);
+  const totalFat=fat.reduce((s,i)=>s+i.value,0);
+  const venc=new Date(Math.floor(beYm/12),beYm%12,beCard.dueDay);
+  $("beFatLabel").innerHTML=`Fatura vence ${venc.toLocaleDateString("pt-BR",{day:"2-digit",month:"short",year:"2-digit"})}<br><span class="muted" style="font-size:13px;">${fat.length} itens · ${brl(totalFat)}</span>`;
+  $("beList").innerHTML=fat.length?fat.map(i=>{const c=catById(i.categoryId);const compra=new Date(i.purchaseTs).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"2-digit"});
+    return `<div class="row" data-bpen="${i.srcId}" style="cursor:pointer;"><span class="dot" style="background:${c.color}"></span>
+      <div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${i.description||c.name}</div>
+      <div class="muted" style="font-size:11px;">${c.short} · parc. ${i.idx}/${i.of} · compra ${compra}</div></div>
+      <div class="serif" style="font-size:15px;">${brl(i.value)}</div><span class="muted" style="font-size:15px;margin-left:6px;">✏️</span></div>`;}).join("")
+    :`<div class="card muted" style="text-align:center;padding:24px;font-size:14px;">Nenhum lançamento nesta fatura.<br>Confira com a fatura do banco e lance os que faltam.</div>`;
+  $("beList").querySelectorAll("[data-bpen]").forEach(r=>r.onclick=()=>{const e=store.expenses.find(x=>String(x.id)===String(r.dataset.bpen));if(e)openEntry("",e);});
+}
+$("bePrev").onclick=()=>{beYm--;renderBill();};
+$("beNext").onclick=()=>{beYm++;renderBill();};
+$("beClose").onclick=()=>{$("billEd").style.display="none";if(!$("screen-debt").classList.contains("hide"))renderDebt();};
+$("beAdd").onclick=()=>{
+  // abre lançamento já no cartão e com vencimento da fatura selecionada
+  const venc=new Date(Math.floor(beYm/12),beYm%12,beCard.dueDay,12,0,0).getTime();
+  const d={id:uid(),ts:Date.now(),amount:"",categoryId:activeCats()[0].id,description:"",payMethod:"credito",parcelas:1,cardId:beCard.id,firstDueTs:venc,_dueManual:true};
+  openEntry("",d);
+};
 
 /* ============================================================
    RESUMO — receitas, investimentos (por saldo) e patrimônio
