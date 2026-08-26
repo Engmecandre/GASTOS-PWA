@@ -860,10 +860,11 @@ function billItems(cardId){
 function openCardBill(cardId){
   beCard=store.cards.find(c=>c.id===cardId);if(!beCard)return;
   const items=billItems(cardId);
-  // fatura inicial = próxima com vencimento >= hoje, senão a última
+  // fatura inicial = PRÓXIMA a vencer (mês seguinte ao corrente); se não houver, a mais próxima disponível
   const yms=[...new Set(items.map(i=>i.ym))].sort((a,b)=>a-b);
-  const future=yms.filter(y=>y>=ymNow());
-  beYm = future.length?future[0]:(yms.length?yms[yms.length-1]:ymNow());
+  const proximas=yms.filter(y=>y>ymNow());               // estritamente futuras (pula o mês corrente)
+  const futurasIncl=yms.filter(y=>y>=ymNow());
+  beYm = proximas.length?proximas[0]:(futurasIncl.length?futurasIncl[0]:(yms.length?yms[yms.length-1]:ymNow()+1));
   $("beName").textContent=beCard.name;
   $("billEd").style.display="block";window.scrollTo(0,0);
   renderBill();
@@ -872,7 +873,7 @@ function renderBill(){
   const items=billItems(beCard.id);
   const comprometido=items.filter(i=>i.ym>=ymNow()).reduce((s,i)=>s+i.value,0);
   const yms=[...new Set(items.map(i=>i.ym))].sort((a,b)=>a-b);
-  const nextYm=yms.filter(y=>y>=ymNow())[0];
+  const nextYm=(yms.filter(y=>y>ymNow())[0])!=null?yms.filter(y=>y>ymNow())[0]:yms.filter(y=>y>=ymNow())[0];
   const proxima=nextYm!=null?items.filter(i=>i.ym===nextYm).reduce((s,i)=>s+i.value,0):0;
   $("beTop").innerHTML=`<div class="card" style="background:linear-gradient(160deg,#2c2620,#241e18);">
     <div class="muted" style="font-size:12px;">Total comprometido (falta pagar neste cartão)</div>
