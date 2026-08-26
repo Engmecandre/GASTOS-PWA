@@ -239,6 +239,27 @@ svg text{font-family:'Hanken Grotesk',sans-serif;}
 <!-- modal genérico -->
 <div id="modal" class="modal"><div class="sheet" id="sheet"></div></div>
 
+<!-- editor de histórico de saldos de investimento -->
+<div id="investEd" style="position:fixed;inset:0;z-index:90;background:var(--bg);display:none;overflow:auto;">
+  <div style="max-width:900px;margin:0 auto;padding:22px 18px 90px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+      <div><div class="kick">Histórico de saldos (mês a mês)</div><div id="ieName" class="h1"></div></div>
+      <button id="ieClose" class="btn btn-ghost" style="padding:10px 16px;">✕ Fechar</button>
+    </div>
+    <div id="ieSummary" style="margin:14px 0;"></div>
+    <div class="muted" style="font-size:12px;line-height:1.5;margin-bottom:10px;">Preencha o <b>saldo do fim de cada mês</b> (do extrato). O rendimento é calculado sozinho. O 1º mês preenchido é a base (rendimento zero). Aporte/resgate podem ficar em zero e você ajusta depois.</div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <input id="ieYear" class="field" inputmode="numeric" style="width:96px;" value="2026">
+      <button id="ieGen" class="btn btn-ghost" style="flex:1;padding:11px;">+ Gerar 12 meses do ano</button>
+    </div>
+    <div id="ieRows"></div>
+    <div style="display:flex;gap:10px;margin-top:18px;">
+      <button id="ieCancel" class="btn btn-ghost" style="flex:1;padding:13px;">Cancelar</button>
+      <button id="ieSave" class="btn btn-gold" style="flex:2;padding:13px;">✓ Salvar histórico</button>
+    </div>
+  </div>
+</div>
+
 <!-- relatório -->
 <div id="report"><div class="rep-bar no-print">
   <button id="repClose" class="btn" style="background:#efe9df;color:#5a4d3d;padding:10px 16px;">✕ Fechar</button>
@@ -809,15 +830,27 @@ let sumOffset=0;
 
 // rendimento = saldo novo − saldo anterior − aporte + resgate
 function calcRendimento(prev,novo,aporte,resgate){ return novo-prev-(aporte||0)+(resgate||0); }
+/* rendimento encadeado: ordena os saldos por mês; cada mês compara com o mês
+   preenchido anterior. O 1º mês preenchido é a linha de base (rendimento 0). */
+function snapChain(inv){
+  const snaps=(inv.history||[]).filter(h=>typeof h.balance==="number"&&!isNaN(h.balance)).slice().sort((a,b)=>a.refYm-b.refYm);
+  const out={};
+  for(let i=0;i<snaps.length;i++){const s=snaps[i];
+    if(i===0){out[s.refYm]={balance:s.balance,aporte:s.aporte||0,resgate:s.resgate||0,rendimento:0,baseline:true,prev:null};}
+    else{const prev=snaps[i-1].balance;const rend=s.balance-prev-(s.aporte||0)+(s.resgate||0);out[s.refYm]={balance:s.balance,aporte:s.aporte||0,resgate:s.resgate||0,rendimento:rend,baseline:false,prev:prev};}
+  }
+  return out;
+}
+function currentBalanceOf(inv){const snaps=(inv.history||[]).filter(h=>typeof h.balance==="number").slice().sort((a,b)=>a.refYm-b.refYm);return snaps.length?snaps[snaps.length-1].balance:(inv.balance||0);}
 function incomesForYm(ym){
   const list=[];
   (store.incomes||[]).forEach(i=>{ if(ymOf(i.ts)===ym)list.push({...i,kind:"manual"}); });
-  (store.investments||[]).forEach(inv=>(inv.history||[]).forEach(h=>{ if(h.refYm===ym&&h.rendimento)list.push({id:inv.id+"-"+h.refYm,ts:ymTs(ym),amount:h.rendimento,source:"rendimento",description:"Rendimento "+inv.name,kind:"rend",invId:inv.id}); }));
+  (store.investments||[]).forEach(inv=>{const ch=snapChain(inv);if(ch[ym]&&ch[ym].rendimento)list.push({id:inv.id+"-"+ym,ts:ymTs(ym),amount:ch[ym].rendimento,source:"rendimento",description:"Rendimento "+inv.name,kind:"rend",invId:inv.id});});
   return list;
 }
-function investedForYm(ym){let n=0;(store.investments||[]).forEach(inv=>(inv.history||[]).forEach(h=>{if(h.refYm===ym)n+=(h.aporte||0)-(h.resgate||0);}));return n;}
-function rendimentoForYm(ym){let r=0;(store.investments||[]).forEach(inv=>(inv.history||[]).forEach(h=>{if(h.refYm===ym)r+=(h.rendimento||0);}));return r;}
-function patrimonioTotal(){return (store.investments||[]).reduce((s,i)=>s+(i.balance||0),0);}
+function investedForYm(ym){let n=0;(store.investments||[]).forEach(inv=>{const ch=snapChain(inv);if(ch[ym])n+=(ch[ym].aporte||0)-(ch[ym].resgate||0);});return n;}
+function rendimentoForYm(ym){let r=0;(store.investments||[]).forEach(inv=>{const ch=snapChain(inv);if(ch[ym])r+=ch[ym].rendimento||0;});return r;}
+function patrimonioTotal(){return (store.investments||[]).reduce((s,i)=>s+currentBalanceOf(i),0);}
 function despesasForYm(ym){return cashEvents().filter(x=>x.ym===ym).reduce((s,x)=>s+x.amount,0);}
 
 function renderResumo(){
@@ -863,14 +896,80 @@ function renderIncomeList(incs){
 }
 function renderInvestList(){
   const el=$("investList");
-  el.innerHTML=(store.investments||[]).map(inv=>{const last=(inv.history||[]).slice(-1)[0];
-    const pct=last&&last.rendimento&&(last.balance-last.rendimento)?(last.rendimento/(last.balance-last.rendimento)*100):null;
+  el.innerHTML=(store.investments||[]).map(inv=>{const ch=snapChain(inv);const keys=Object.keys(ch).map(Number).sort((a,b)=>b-a);const lastYm=keys[0];const last=lastYm!=null?ch[lastYm]:null;
+    const pct=last&&last.prev?(last.rendimento/last.prev*100):null;const bal=currentBalanceOf(inv);
     return `<div class="row" data-uinv="${inv.id}" style="cursor:pointer;">
       <div style="flex:1;"><div style="font-weight:600;font-size:14px;">${inv.name}</div>
-      <div class="muted" style="font-size:12px;">${inv.lastUpdate?"últ. "+ymLabel(last?last.refYm:ymNow())+(pct!=null?" · "+pct.toFixed(2)+"%":""):"toque para atualizar o saldo"}</div></div>
-      <div style="text-align:right;"><div class="serif" style="font-size:15px;">${brl(inv.balance)}</div><div class="muted" style="font-size:11px;">atualizar ›</div></div></div>`;}).join("");
-  el.querySelectorAll("[data-uinv]").forEach(r=>r.onclick=()=>openInvestUpdate(r.dataset.uinv));
+      <div class="muted" style="font-size:12px;">${lastYm!=null?"últ. "+ymLabel(lastYm)+(pct!=null?" · "+pct.toFixed(2)+"%":" · base"):"toque para lançar saldos"}</div></div>
+      <div style="text-align:right;"><div class="serif" style="font-size:15px;">${brl(bal)}</div><div class="muted" style="font-size:11px;">histórico ›</div></div></div>`;}).join("");
+  el.querySelectorAll("[data-uinv]").forEach(r=>r.onclick=()=>openInvestEditor(r.dataset.uinv));
 }
+
+/* ---- editor de histórico de saldos (mês a mês) ---- */
+let ieInv=null, ieDraft=[];
+function openInvestEditor(invId){
+  ieInv=store.investments.find(x=>x.id===invId);if(!ieInv)return;
+  // carrega histórico existente como rascunho
+  ieDraft=(ieInv.history||[]).map(h=>({refYm:h.refYm,balance:(typeof h.balance==="number"?h.balance:""),aporte:h.aporte||0,resgate:h.resgate||0}));
+  // se não houver nada, semeia com o mês atual e o saldo semente
+  if(!ieDraft.length){ieDraft.push({refYm:ymNow(),balance:(ieInv.balance||0),aporte:0,resgate:0});}
+  $("ieName").textContent=ieInv.name;
+  $("investEd").style.display="block";window.scrollTo(0,0);
+  renderIE();
+}
+function ieAddMonth(ym){ if(!ieDraft.find(r=>r.refYm===ym)) ieDraft.push({refYm:ym,balance:"",aporte:0,resgate:0}); ieDraft.sort((a,b)=>a.refYm-b.refYm); renderIE(); }
+function renderIE(){
+  ieDraft.sort((a,b)=>a.refYm-b.refYm);
+  // encadeia sobre linhas com saldo preenchido
+  const filled=ieDraft.filter(r=>r.balance!==""&&!isNaN(parseFloat(r.balance)));
+  const rend={};
+  for(let i=0;i<filled.length;i++){const r=filled[i],bal=parseFloat(r.balance);
+    if(i===0)rend[r.refYm]={v:0,base:true,prev:null};
+    else{const prev=parseFloat(filled[i-1].balance);rend[r.refYm]={v:bal-prev-(parseBRL(r.aporte)||0)+(parseBRL(r.resgate)||0),base:false,prev:prev};}
+  }
+  $("ieRows").innerHTML=ieDraft.map((r,idx)=>{const rr=rend[r.refYm];const rv=rr?rr.v:null;const pct=rr&&rr.prev?(rr.v/rr.prev*100):null;
+    return `<div class="card" style="margin-bottom:8px;padding:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <b style="text-transform:capitalize;">${ymLabel(r.refYm)}</b>
+        <span style="font-size:13px;">${r.balance===""?'<span class="muted">preencha o saldo</span>':(rr&&rr.base?'<span class="muted">base</span>':`rendeu <b style="color:${rv>=0?'#5C8A4C':'#C2553B'};">${brl(rv)}</b>${pct!=null?` <span class="muted">(${pct.toFixed(2)}%)</span>`:''}`)}
+        <button class="btn" data-ierm="${idx}" style="background:transparent;color:var(--mut2);padding:4px 6px;margin-left:8px;">🗑</button></span>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:9px;flex-wrap:wrap;">
+        <label style="flex:1;min-width:120px;"><span class="muted" style="font-size:11px;">Saldo fim do mês</span><input class="field" data-ie="balance" data-idx="${idx}" inputmode="decimal" value="${r.balance===''?'':amtToInput(r.balance)}" placeholder="0,00" style="margin-top:3px;"></label>
+        <label style="flex:1;min-width:90px;"><span class="muted" style="font-size:11px;">Aporte</span><input class="field" data-ie="aporte" data-idx="${idx}" inputmode="decimal" value="${r.aporte?amtToInput(r.aporte):''}" placeholder="0" style="margin-top:3px;"></label>
+        <label style="flex:1;min-width:90px;"><span class="muted" style="font-size:11px;">Resgate</span><input class="field" data-ie="resgate" data-idx="${idx}" inputmode="decimal" value="${r.resgate?amtToInput(r.resgate):''}" placeholder="0" style="margin-top:3px;"></label>
+      </div></div>`;}).join("")||`<div class="muted" style="font-size:13px;padding:8px;">Nenhum mês. Gere o ano ou adicione meses.</div>`;
+  // resumo
+  const tot=filled.reduce((s,r)=>s+(rend[r.refYm]?rend[r.refYm].v:0),0);
+  const bal=filled.length?parseFloat(filled[filled.length-1].balance):0;
+  $("ieSummary").innerHTML=`<div class="card" style="display:flex;justify-content:space-between;"><div><div class="muted" style="font-size:11px;">Saldo mais recente</div><div class="serif" style="font-size:20px;color:var(--gold);">${brl(bal)}</div></div><div style="text-align:right;"><div class="muted" style="font-size:11px;">Rendimento acumulado (preenchido)</div><div class="serif" style="font-size:20px;color:#5C8A4C;">${brl(tot)}</div></div></div>`;
+  // eventos de input (atualizam só o rascunho + recomputam, sem perder foco)
+  $("ieRows").querySelectorAll("input[data-ie]").forEach(inp=>{inp.oninput=()=>{const i=+inp.dataset.idx,f=inp.dataset.ie;ieDraft[i][f]=(f==="balance"&&inp.value.trim()==="")?"":inp.value;recomputeIE();};});
+  $("ieRows").querySelectorAll("[data-ierm]").forEach(b=>b.onclick=()=>{ieDraft.splice(+b.dataset.ierm,1);renderIE();});
+}
+function recomputeIE(){ // recalcula rendimentos e resumo sem re-renderizar os inputs (mantém o foco)
+  const filled=ieDraft.filter(r=>r.balance!==""&&!isNaN(parseFloat(r.balance))).slice().sort((a,b)=>a.refYm-b.refYm);
+  const rend={};for(let i=0;i<filled.length;i++){const r=filled[i],bal=parseFloat(r.balance);if(i===0)rend[r.refYm]={v:0,base:true,prev:null};else{const prev=parseFloat(filled[i-1].balance);rend[r.refYm]={v:bal-prev-(parseBRL(r.aporte)||0)+(parseBRL(r.resgate)||0),base:false,prev:prev};}}
+  ieDraft.forEach((r,idx)=>{const cell=$("ieRows").querySelector('[data-rcell="'+idx+'"]');});
+  // atualiza os textos de rendimento por linha
+  $("ieRows").querySelectorAll(".card").forEach((card,idx)=>{const r=ieDraft[idx];if(!r)return;const span=card.querySelector("span");const rr=rend[r.refYm];const rv=rr?rr.v:null;const pct=rr&&rr.prev?(rr.v/rr.prev*100):null;const rmBtn=`<button class="btn" data-ierm="${idx}" style="background:transparent;color:var(--mut2);padding:4px 6px;margin-left:8px;">🗑</button>`;
+    span.innerHTML=(r.balance===""?'<span class="muted">preencha o saldo</span>':(rr&&rr.base?'<span class="muted">base</span>':`rendeu <b style="color:${rv>=0?'#5C8A4C':'#C2553B'};">${brl(rv)}</b>${pct!=null?` <span class="muted">(${pct.toFixed(2)}%)</span>`:''}`))+rmBtn;
+    card.querySelectorAll("[data-ierm]").forEach(b=>b.onclick=()=>{ieDraft.splice(+b.dataset.ierm,1);renderIE();});});
+  const tot=filled.reduce((s,r)=>s+(rend[r.refYm]?rend[r.refYm].v:0),0);
+  const bal=filled.length?parseFloat(filled[filled.length-1].balance):0;
+  $("ieSummary").innerHTML=`<div class="card" style="display:flex;justify-content:space-between;"><div><div class="muted" style="font-size:11px;">Saldo mais recente</div><div class="serif" style="font-size:20px;color:var(--gold);">${brl(bal)}</div></div><div style="text-align:right;"><div class="muted" style="font-size:11px;">Rendimento acumulado (preenchido)</div><div class="serif" style="font-size:20px;color:#5C8A4C;">${brl(tot)}</div></div></div>`;
+}
+$("ieGen").onclick=()=>{const y=parseInt($("ieYear").value)||2026;for(let m=0;m<12;m++){const ym=y*12+m;if(!ieDraft.find(r=>r.refYm===ym))ieDraft.push({refYm:ym,balance:"",aporte:0,resgate:0});}renderIE();};
+$("ieClose").onclick=()=>{$("investEd").style.display="none";};
+$("ieCancel").onclick=()=>{$("investEd").style.display="none";};
+$("ieSave").onclick=()=>{
+  // grava só as linhas com saldo válido
+  const hist=ieDraft.filter(r=>r.balance!==""&&!isNaN(parseFloat(r.balance))).map(r=>({ts:Date.now(),refYm:r.refYm,balance:parseFloat(r.balance),aporte:parseBRL(r.aporte)||0,resgate:parseBRL(r.resgate)||0})).sort((a,b)=>a.refYm-b.refYm);
+  ieInv.history=hist;
+  ieInv.balance=hist.length?hist[hist.length-1].balance:ieInv.balance;
+  ieInv.lastUpdate=Date.now();
+  save();cloudCfg();$("investEd").style.display="none";renderResumo();if(!$("screen-set").classList.contains("hide"))renderSettings();showToast("Histórico salvo ✓");
+};
 
 /* ---- receita (modal) ---- */
 function openIncome(existing){
